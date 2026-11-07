@@ -1,25 +1,28 @@
-
 import streamlit as st
-import tensorflow as tf
 import numpy as np
 from PIL import Image
 from tensorflow.keras.models import load_model
 
-modelo = load_model("modelo_frutas.keras")
-
-clases = [
+CLASES = [
     "Apple Golden 1",
     "Banana 1",
     "Orange 1",
     "Grape Blue 1",
-    "Pineapple 1"
+    "Pineapple 1",
 ]
 
-st.title("Clasificador de Frutas con CNN")
+@st.cache_resource
+def cargar_modelo():
+    return load_model("modelo_frutas.keras")
 
-st.write(
-    "Carga una imagen para obtener una predicción."
-)
+st.title("Clasificador de Frutas con CNN")
+st.write("Carga una imagen de manzana, banano, naranja, uva o piña.")
+
+try:
+    modelo = cargar_modelo()
+except Exception as error:
+    st.error(f"No se pudo cargar modelo_frutas.keras: {error}")
+    st.stop()
 
 archivo = st.file_uploader(
     "Selecciona una imagen",
@@ -27,43 +30,34 @@ archivo = st.file_uploader(
 )
 
 if archivo is not None:
+    try:
+        imagen_original = Image.open(archivo).convert("RGB")
+        st.image(imagen_original, caption="Imagen cargada", use_container_width=True)
 
-    imagen = Image.open(archivo)
+        imagen = imagen_original.resize((100, 100))
+        arreglo = np.asarray(imagen, dtype=np.float32)
 
-    st.image(
-        imagen,
-        caption="Imagen cargada",
-        use_container_width=True
-    )
+        # IMPORTANTE:
+        # No dividir entre 255. El modelo ya contiene Rescaling(1./255).
+        entrada = np.expand_dims(arreglo, axis=0)
 
-    imagen = imagen.resize((100, 100))
+        prediccion = modelo.predict(entrada, verbose=0)[0]
+        indice = int(np.argmax(prediccion))
+        confianza = float(prediccion[indice]) * 100
 
-    imagen = np.array(imagen)
+        st.success(f"Fruta predicha: {CLASES[indice]}")
+        st.info(f"Confianza del modelo: {confianza:.2f}%")
 
-    imagen = imagen / 255.0
+        st.subheader("Resultados por fruta")
+        for nombre, valor in zip(CLASES, prediccion):
+            st.write(f"{nombre}: {valor * 100:.2f}%")
+            st.progress(float(valor))
 
-    imagen = np.expand_dims(
-        imagen,
-        axis=0
-    )
+        if confianza < 60:
+            st.warning(
+                "La confianza es baja. Prueba con una foto donde aparezca "
+                "una sola fruta, completa, enfocada y bien iluminada."
+            )
 
-    prediccion = modelo.predict(
-        imagen,
-        verbose=0
-    )
-
-    indice = np.argmax(prediccion)
-
-    fruta = clases[indice]
-
-    confianza = (
-        np.max(prediccion) * 100
-    )
-
-    st.success(
-        f"Fruta predicha: {fruta}"
-    )
-
-    st.info(
-        f"Confianza: {confianza:.2f}%"
-    )
+    except Exception as error:
+        st.error(f"No se pudo procesar la imagen: {error}")
