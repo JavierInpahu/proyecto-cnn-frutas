@@ -1,13 +1,14 @@
 """Validación y preprocesamiento de imágenes para el clasificador de frutas.
 
 La entrada entregada al modelo es idéntica a la de la aplicación original
-`app.py`: RGB, 100×100, `float32`, forma `(1, 100, 100, 3)`, valores 0-255
+`app.py`: RGB, 100×100, `float32`, forma `(1,100,100,3)`, valores 0-255
 y sin división entre 255 (el modelo ya incluye `Rescaling`).
 """
 
 from __future__ import annotations
 
 import io
+import os
 from typing import Any, BinaryIO, Tuple
 from uuid import uuid4
 
@@ -33,13 +34,14 @@ class ImageProcessor:
         self.target_size = target_size
 
     def _leer_bytes(self, archivo: Any) -> Tuple[bytes, str]:
+        """Extrae los datos binarios y el nombre del archivo."""
         nombre = getattr(archivo, "name", "") or str(uuid4())
-        if hasattr(archivo, "getvalue"):
+        if isinstance(archivo, os.PathLike):
+            datos = archivo.read_bytes()
+        elif hasattr(archivo, "getvalue"):
             datos = archivo.getvalue()
         elif isinstance(archivo, (bytes, bytearray)):
             datos = bytes(archivo)
-        elif hasattr(archivo, "read_bytes"):
-            datos = archivo.read_bytes()
         elif hasattr(archivo, "read"):
             datos = archivo.read()
         else:
@@ -63,7 +65,15 @@ class ImageProcessor:
             )
 
     def process(self, archivo: Any) -> np.ndarray:
-        """Devuelve el arreglo `(1, 100, 100, 3)` en `float32`, escala 0-255."""
+        """Devuelve el arreglo `(1, 100, 100, 3)` en `float32`, escala 0-255.
+
+        Pipeline idéntico a `app.py`:
+        - `Image.open(...).convert("RGB")`
+        - `.resize((100, 100))`
+        - `np.asarray(..., dtype=np.float32)`
+        - `np.expand_dims(..., axis=0)`
+        - **Sin división entre 255** (el modelo incluye `Rescaling`)
+        """
         datos, nombre = self._leer_bytes(archivo)
         try:
             imagen = Image.open(io.BytesIO(datos)).convert("RGB")
