@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Apple Golden 1",
+    "scientific_name": "Malus domestica",
+    "description": "Manzana dorada de pulpa dulce y aroma fragante."
+  },
+  {
+    "name": "Banana 1",
+    "scientific_name": "Musa acuminata",
+    "description": "Plátano de forma alargada y pulpa cremosa."
+  },
+  {
+    "name": "Orange 1",
+    "scientific_name": "Citrus sinensis",
+    "description": "Naranja cítrica de piel brillante y sabor ácido-dulce."
+  },
+  {
+    "name": "Grape Blue 1",
+    "scientific_name": "Vitis vinifera",
+    "description": "Uva azul de racimo y piel brillante."
+  },
+  {
+    "name": "Pineapple 1",
+    "scientific_name": "Ananas comosus",
+    "description": "Piña tropical de pulpa jugosa y corona espinosa."
+  }
+]

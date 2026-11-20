@@ -125,6 +125,74 @@ python train.py
 
 El modelo entrenado se guardará como `modelo_frutas.keras`.
 
+## Evolución: monolito modular con MongoDB Atlas
+
+Esta versión reorganiza la aplicación en capas con dependencias unidireccionales:
+
+`frontend` → `backend/services` → `backend/repositories` → `backend/database` → Atlas,
+y `backend/services` → `ml` → `modelo_frutas.keras`. Las vistas de Streamlit nunca
+importan `pymongo` ni `backend.database`.
+
+### Nuevas carpetas
+
+- `frontend/`: vistas y componentes de las cinco secciones (Inicio, Reconocimiento,
+  Historial, Administración de frutas y Estadísticas).
+- `backend/`: configuración, conexión MongoDB, modelos de dominio, repositorios y servicios.
+- `ml/`: manifiesto único de clases, procesamiento de imágenes y carga del modelo.
+- `scripts/`: versiones corregidas de `train.py` y `predict.py`, y comprobación de conexión.
+- `tests/`: pruebas unitarias y de integración.
+- `docs/`: documentación de requisitos, arquitectura, base de datos, conexión y pruebas.
+
+## Configuración de MongoDB Atlas
+
+1. Copie `.env.example` a `.env` (el archivo `.env` se ignora con `.gitignore`):
+
+   ```bash
+   copy .env.example .env   (Windows)
+   cp .env.example .env     (Linux/macOS)
+   ```
+
+2. Reemplace únicamente `REEMPLAZAR_POR_URI_DE_ATLAS` por la URI real del cluster
+   Atlas (el cluster ya debe existir y ser accesible).
+
+3. Ejecute la comprobación de conexión:
+
+   ```bash
+   python scripts/check_mongo_connection.py
+   ```
+
+Las pruebas de integración usan la base `DB_Frutas_Inpahu_test` y requieren la URI
+configurada fuera del repositorio:
+
+```bash
+pytest -m integration
+```
+
+## Scripts heredados
+
+Los archivos `train.py` y `predict.py` de la raíz contienen cercas de Markdown y no
+son ejecutables tal cual. Se conservan intactos por compatibilidad; las versiones
+corregidas están en `scripts/train.py` y `scripts/predict.py`.
+
+El modelo `modelo_frutas.keras` y el notebook permanecen en la raíz sin cambios; este
+cambio no los reentrena ni los mueve.
+
+## Pruebas automatizadas
+
+```bash
+pytest -m "not integration"   # unitarias, sin red ni Atlas
+pytest -m integration         # integración sobre DB_Frutas_Inpahu_test (requiere URI)
+```
+
+## Reversión
+
+Antes de refactorizar `app.py` se creó el tag `git tag pre-refactor`. Para recuperar
+la versión heredada del punto de entrada:
+
+```bash
+git checkout pre-refactor -- app.py
+```
+
 ## Autor
 
 Proyecto académico de Ingeniería de Software.
