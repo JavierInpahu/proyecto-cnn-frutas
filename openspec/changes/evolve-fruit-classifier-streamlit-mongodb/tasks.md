@@ -12,6 +12,8 @@ Estado inicial: **ninguna tarea aparece marcada como completada**. La auditoría
 - [ ] 1.2 Verificar el contrato del modelo leyendo `config.json` dentro de `modelo_frutas.keras`: entrada `[None,100,100,3]`, capa `Rescaling`, salida `Dense(5, softmax)`; comparar con `proposal.md`.
 - [ ] 1.3 Confirmar que no existen `backend/`, `scripts/`, `tests/`, `docs/`, `.env.example`, `.gitattributes` ni conexión previa a MongoDB que debamos reutilizar; verificar con listado de directorios.
 - [ ] 1.4 Confirmar que ningún artefacto del cambio contiene credenciales reales y que el notebook no se modifica; verificar con búsqueda de `REEMPLAZAR_POR_URI_DE_ATLAS` y con `git status --short`.
+- [ ] 1.5 Crear `git tag pre-refactor` antes de cualquier refactorización (sin commits ni cambios de historial) y verificar que existe con `git tag -l pre-refactor`.
+- [ ] 1.6 Capturar la línea base de regresión: ejecutar `app.py` heredado con un conjunto de imágenes de referencia y guardar clase y confianza; verificar que las salidas quedan registradas antes de tocar `app.py`.
 
 ## 2. Arquitectura y requisitos
 
@@ -20,7 +22,7 @@ Estado inicial: **ninguna tarea aparece marcada como completada**. La auditoría
 - **Criterio de aceptación:** cada RF/RNF tiene un módulo responsable y las decisiones de diseño no contradicen los specs.
 
 - [ ] 2.1 Trazar los requisitos RF-01 a RF-41 y RNF-01 a RNF-07 hacia los módulos del árbol definitivo, y verificar que no quede requisito sin destino.
-- [ ] 2.2 Confirmar con el solicitante las preguntas abiertas de `design.md` que afecten al arranque (`app.py`) y a los metadatos del manifiesto, actualizando `design.md` si hay cambios; verificar que la decisión queda registrada.
+- [ ] 2.2 Verificar que las decisiones ya confirmadas están registradas en `design.md`: único `app.py` delgado con tag y línea base, cluster Atlas existente, metadatos en el manifiesto y traslado de modelo/notebook diferido; no volver a preguntarlas.
 - [ ] 2.3 Verificar que el plan no reentrena, mueve ni sustituye `modelo_frutas.keras` y que `MODEL_PATH` sigue apuntando a la raíz.
 - [ ] 2.4 Ejecutar `openspec validate evolve-fruit-classifier-streamlit-mongodb --strict` y corregir cualquier aviso antes de tocar código.
 
@@ -31,8 +33,8 @@ Estado inicial: **ninguna tarea aparece marcada como completada**. La auditoría
 - **Criterio de aceptación:** todos los paquetes importan sin errores y el manifiesto contiene las cinco clases en el orden exacto del modelo.
 
 - [ ] 3.1 Crear la estructura de paquetes del árbol definitivo y comprobar que `python -c "import frontend, backend, ml"` termina sin errores.
-- [ ] 3.2 Crear `ml/class_manifest.json` con `Apple Golden 1`, `Banana 1`, `Orange 1`, `Grape Blue 1`, `Pineapple 1` en ese orden y verificar que coincide con la salida `Dense(5, softmax)` y con la lista actual de `app.py`.
-- [ ] 3.3 Implementar el lector de manifiesto que expone nombres y metadatos opcionales, y verificar con una prueba unitaria que devuelve cinco clases y conserva el orden.
+- [ ] 3.2 Crear `ml/class_manifest.json` con `Apple Golden 1`, `Banana 1`, `Orange 1`, `Grape Blue 1`, `Pineapple 1` en ese orden, incluyendo `scientific_name` y `description` para cada una, y verificar que el orden coincide con la salida `Dense(5, softmax)` y con la lista actual de `app.py`.
+- [ ] 3.3 Implementar el lector de manifiesto que expone nombre, nombre científico y descripción, y verificar con una prueba unitaria que devuelve cinco clases, conserva el orden y no deja metadatos vacíos.
 - [ ] 3.4 Implementar `ValidationError`, `DuplicateFruitError`, `NotFoundError`, `InvalidImageError`, `ModelMismatchError`, `MongoConnectionError` y sus cuatro subtipos, y verificar la jerarquía con una prueba unitaria.
 - [ ] 3.5 Verificar con una búsqueda en el código que no queden listas `CLASES` duplicadas en módulos nuevos.
 
@@ -48,6 +50,7 @@ Estado inicial: **ninguna tarea aparece marcada como completada**. La auditoría
 - [ ] 4.4 Implementar `Settings` con validación y `MongoConnection` con `connect()`, `ping()`, `get_collection()` y `close()`, y verificar con pruebas unitarias los cuatro subtipos de `MongoConnectionError` sin abrir red.
 - [ ] 4.5 Crear los índices (único en `fruits.name` con collation sin distinción de mayúsculas y descendente en `predictions.created_at`) y verificar su definición con `mongomock` o contra la base de pruebas.
 - [ ] 4.6 Crear `scripts/check_mongo_connection.py` y documentar su uso en `docs/conexion_mongodb.md`; verificar que una URI inválida produce un mensaje sin secretos.
+- [ ] 4.7 Verificar el acceso al cluster Atlas existente con la URI entregada fuera del repositorio y confirmar que se pueden crear índices en `DB_Frutas_Inpahu` y operar en `DB_Frutas_Inpahu_test`.
 
 ## 5. CRUD de frutas
 
@@ -57,7 +60,7 @@ Estado inicial: **ninguna tarea aparece marcada como completada**. La auditoría
 
 - [ ] 5.1 Implementar `Fruit` con validación, `_id` ObjectId y `active=true` por defecto, y verificar con pruebas unitarias la conversión desde/hacia documento y los cinco campos exactos.
 - [ ] 5.2 Implementar `FruitRepository` sobre la colección inyectada, con índice único por collation y manejo de duplicados; verificar con `mongomock` que `banana 1` no se crea si existe `Banana 1`.
-- [ ] 5.3 Implementar `FruitService` con inyección de repositorio y manifiesto, incluida la siembra sin duplicados; verificar con pruebas unitarias que una segunda siembra no crea documentos.
+- [ ] 5.3 Implementar `FruitService` con inyección de repositorio y manifiesto, incluida la siembra sin duplicados de nombre, científico y descripción; verificar con pruebas unitarias que la primera siembra copia los metadatos y que una segunda no crea documentos.
 - [ ] 5.4 Implementar borrado con confirmación, activación y desactivación, y verificar que el listado de activas excluye las desactivadas.
 - [ ] 5.5 Crear las pruebas de integración marcadas con `integration` contra `DB_Frutas_Inpahu_test` y documentar `fruits` en `docs/base_datos.md`; verificar que las unitarias no abren red.
 
@@ -76,23 +79,23 @@ Estado inicial: **ninguna tarea aparece marcada como completada**. La auditoría
 ## 7. Integración CNN
 
 - **Archivos afectados:** `ml/image_processor.py`, `ml/model_loader.py`, `backend/services/classification_service.py`, `scripts/train.py`, `scripts/predict.py`, `tests/unit/test_image_processor.py`, `tests/unit/test_model_loader.py`, `tests/unit/test_classification_service.py`, `tests/unit/test_regression_app.py`, `docs/requisitos.md`, `docs/arquitectura.md`.
-- **Dependencias:** etapas 3 y 4; etapa 6 para el guardado opcional del resultado.
+- **Dependencias:** etapa 1 (tag y línea base de regresión), etapas 3 y 4; etapa 6 para el guardado opcional del resultado.
 - **Criterio de aceptación:** la nueva clasificación devuelve la misma clase y confianza que `app.py`, y el modelo original permanece intacto.
 
 - [ ] 7.1 Implementar `ImageProcessor` con validación JPG/JPEG/PNG de hasta 5 MB, RGB, 100×100, `float32`, forma `(1,100,100,3)` y sin división entre 255; verificar con pruebas unitarias los formatos rechazados y la forma del arreglo.
 - [ ] 7.2 Implementar `ModelLoader` con caché, lectura de `MODEL_PATH` y validación de salidas contra el manifiesto; verificar con una prueba que un modelo de seis salidas lanza `ModelMismatchError` (sin reentrenar ni reemplazar el modelo real).
 - [ ] 7.3 Implementar `ClassificationService` con inyección de colaboradores, resultado con `saved`/`warning` y captura de `MongoConnectionError`; verificar con dobles que un fallo de Atlas conserva la predicción.
 - [ ] 7.4 Crear `scripts/train.py` y `scripts/predict.py` sin cercas de Markdown y leyendo el manifiesto; verificar que `python scripts/predict.py --help` (o la ruta definida) no produce error de sintaxis y que los originales siguen sin cambios.
-- [ ] 7.5 Escribir la prueba de regresión con una imagen de referencia y verificar que la clase y la confianza coinciden exactamente con el cálculo de `app.py`.
+- [ ] 7.5 Escribir la prueba de regresión con las imágenes de referencia de la etapa 1 y verificar primero que reproduce la línea base de `app.py` heredado y después que coincide exactamente con la arquitectura evolucionada.
 - [ ] 7.6 Documentar requisitos y flujo ML en `docs/requisitos.md` y `docs/arquitectura.md`, y verificar que no se menciona normalización manual entre 255.
 
 ## 8. Interfaz Streamlit
 
 - **Archivos afectados:** `app.py`, `frontend/navigation.py`, `frontend/components/`, `frontend/views/`, `README.md` (sección de ejecución).
-- **Dependencias:** etapas 5, 6 y 7.
+- **Dependencias:** etapa 1 (tag y línea base capturada antes del refactor), etapas 5, 6 y 7.
 - **Criterio de aceptación:** las cinco secciones son accesibles, el reconocimiento funciona y un fallo de Atlas no oculta la predicción.
 
-- [ ] 8.1 Refactorizar `app.py` como entrypoint delgado que delega en `frontend/` sin borrar ni renombrar el archivo, y verificar que `python -m streamlit run app.py` inicia sin errores de importación.
+- [ ] 8.1 Comprobar que el tag `pre-refactor` y la línea base de la etapa 1 existen; solo entonces refactorizar `app.py` como único entrypoint delgado que delega en `frontend/`, sin borrarlo ni renombrarlo, y verificar que `python -m streamlit run app.py` inicia sin errores de importación.
 - [ ] 8.2 Implementar la navegación y las cinco vistas, y verificar manualmente que Inicio, Reconocimiento, Historial, Administración de frutas y Estadísticas están disponibles.
 - [ ] 8.3 Implementar el componente de carga con validación, vista previa, fruta, confianza y probabilidades; verificar que una confianza inferior al 60 % muestra la advertencia.
 - [ ] 8.4 Implementar guardado tolerante a fallos y verificar con un doble que falla que la predicción se muestra igual y aparece el aviso correspondiente.
@@ -120,10 +123,10 @@ Estado inicial: **ninguna tarea aparece marcada como completada**. La auditoría
 
 - [ ] 10.1 Actualizar `README.md` de forma incremental con arquitectura, variables de entorno, comando de ejecución y advertencia sobre los scripts originales; verificar que los comandos funcionan tal como están escritos.
 - [ ] 10.2 Completar `docs/arquitectura.md` con el diagrama de capas y la tabla de clases, y verificar que las vistas no importan `pymongo` ni `backend.database`.
-- [ ] 10.3 Completar `docs/requisitos.md`, `docs/base_datos.md` y `docs/conexion_mongodb.md`, y verificar que coinciden con los requisitos RF/RNF implementados.
+- [ ] 10.3 Completar `docs/requisitos.md`, `docs/base_datos.md` y `docs/conexion_mongodb.md`, documentando que el manifiesto es la fuente de la siembra inicial y que las descripciones se ajustan en Atlas desde la interfaz; verificar que coinciden con los requisitos RF/RNF implementados.
 - [ ] 10.4 Crear `docs/pruebas.md` con los comandos unitarios y de integración, y verificar que ambos comandos se ejecutan correctamente.
 - [ ] 10.5 Crear `CHANGELOG.md` con la evolución a monolito modular, Atlas e historial, y verificar que no incluye credenciales ni datos sensibles.
-- [ ] 10.6 Revisar todos los artefactos y la documentación en español, verificar el estado final con `git status --short` y confirmar que los archivos protegidos solo cambiaron de forma autorizada.
+- [ ] 10.6 Revisar todos los artefactos y la documentación en español, verificar que el tag `pre-refactor` sigue disponible, confirmar con `git status --short` que no se hicieron commits ni se movió el modelo o el notebook, y comprobar que los archivos protegidos solo cambiaron de forma autorizada.
 
 ## Workflow follow-up
 

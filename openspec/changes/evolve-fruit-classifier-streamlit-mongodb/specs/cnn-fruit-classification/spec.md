@@ -7,15 +7,19 @@ Define la fuente única de verdad de las clases, la validación de compatibilida
 ## ADDED Requirements
 
 ### Requirement: RF-29 Manifiesto único de clases
-El sistema SHALL definir las cinco clases exclusivamente en `ml/class_manifest.json` y SHALL hacer que el entrenamiento, la predicción, el catálogo y la interfaz lean ese manifiesto.
+El sistema SHALL definir exclusivamente en `ml/class_manifest.json` el nombre, el nombre científico y la descripción de las cinco clases, en el orden de salida del modelo, y SHALL hacer que el entrenamiento, la predicción, el catálogo y la interfaz lean ese manifiesto.
 
-#### Scenario: Orden de clases
+#### Scenario: Orden y metadatos de clases
 - **WHEN** se consulta el manifiesto
-- **THEN** el orden es `Apple Golden 1`, `Banana 1`, `Orange 1`, `Grape Blue 1`, `Pineapple 1`
+- **THEN** el orden es `Apple Golden 1`, `Banana 1`, `Orange 1`, `Grape Blue 1`, `Pineapple 1` y cada clase incluye `scientific_name` y `description`
+
+#### Scenario: Siembra desde el manifiesto
+- **WHEN** se siembra el catálogo por primera vez
+- **THEN** los tres campos de texto de cada fruta proceden del manifiesto sin inventar valores
 
 #### Scenario: Sin listas duplicadas
-- **WHEN** se inspeccionan los módulos de entrenamiento, predicción e interfaz
-- **THEN** ninguno define su propia lista de clases
+- **WHEN** se inspeccionan los módulos nuevos de entrenamiento, predicción, catálogo e interfaz
+- **THEN** ninguno define su propia lista de clases y todos consumen el manifiesto
 
 ### Requirement: RF-30 Validación de compatibilidad del modelo
 El sistema SHALL comprobar que el número de salidas del modelo sea igual al número de clases del manifiesto antes de clasificar.
@@ -35,6 +39,10 @@ El sistema SHALL devolver exactamente la misma clase y la misma confianza que `a
 - **WHEN** la misma imagen se clasifica con `app.py` y con la nueva arquitectura
 - **THEN** ambos devuelven idéntico índice de clase e idéntico valor de confianza
 
+#### Scenario: Línea base antes del refactor
+- **WHEN** se registran las salidas de `app.py` para un conjunto de imágenes de referencia antes de modificar el archivo
+- **THEN** esos valores se conservan como línea base y la arquitectura evolucionada debe reproducirlos exactamente
+
 ### Requirement: RF-32 Ampliación controlada de clases
 El sistema SHALL no reconocer clases ausentes del modelo actual y SHALL exigir reentrenamiento, evaluación y validación antes de reemplazar el modelo para ampliar el catálogo.
 
@@ -52,6 +60,10 @@ El sistema SHALL conservar `modelo_frutas.keras` en la raíz y SHALL utilizar `M
 #### Scenario: Ruta configurada
 - **WHEN** `MODEL_PATH` apunta a `modelo_frutas.keras`
 - **THEN** el cargador abre ese archivo sin copiarlo ni moverlo
+
+#### Scenario: Artefactos en su ubicación actual
+- **WHEN** se revisa la ubicación del modelo y del notebook durante este cambio
+- **THEN** ambos permanecen en la raíz y cualquier traslado a `models/` o `notebooks/` queda para un cambio posterior
 
 #### Scenario: Archivo ausente
 - **WHEN** el archivo configurado no existe

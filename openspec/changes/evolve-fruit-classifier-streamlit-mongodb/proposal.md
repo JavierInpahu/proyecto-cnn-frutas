@@ -35,7 +35,7 @@ Hechos proporcionados por el solicitante que **sí se confirmaron**: cercas de M
 ## What Changes
 
 - Reestructurar el proyecto como **monolito modular en capas** con dependencias unidireccionales: `frontend` → `backend/services` → `backend/repositories` → `backend/database` → Atlas, y `backend/services` → `ml` → `modelo_frutas.keras`. Las vistas de Streamlit no importarán `pymongo` ni `backend.database`.
-- Centralizar las cinco clases en `ml/class_manifest.json`; el modelo, el entrenamiento, la predicción, el catálogo y la interfaz lo leerán de ahí. `ModelLoader` validará que el número de salidas coincida con el manifiesto y lanzará `ModelMismatchError` si no coincide.
+- Centralizar las cinco clases en `ml/class_manifest.json`, con `name`, `scientific_name` y `description` por clase en el orden de salida del modelo. El entrenamiento, la predicción, el catálogo y la interfaz lo leerán de ahí; desde el manifiesto se sembrará Atlas y las descripciones se podrán ajustar después desde la interfaz sin tocar código. `ModelLoader` validará que el número de salidas coincida con el manifiesto y lanzará `ModelMismatchError` si no coincide.
 - Añadir `Settings`, `MongoConnection` y configuración por variables de entorno con `.env.example` usando únicamente `REEMPLAZAR_POR_URI_DE_ATLAS`.
 - Crear el modelo de dominio POO (`Fruit`, `Prediction`), repositorios y servicios con inyección de dependencias, y las excepciones de dominio solicitadas.
 - Implementar CRUD de frutas (incluye activar/desactivar, duplicados por nombre ignorando mayúsculas y siembra desde el manifiesto) y CRUD de historial de predicciones (incluye corrección de `fruit_name` sin tocar `created_at`, filtros combinables por fruta y rango de fechas, y borrado con confirmación).
@@ -43,6 +43,7 @@ Hechos proporcionados por el solicitante que **sí se confirmaron**: cercas de M
 - Sustituir la pantalla única por cinco secciones Streamlit: Inicio, Reconocimiento, Historial, Administración de frutas y Estadísticas. Si Atlas falla, la predicción se muestra igual y se avisa que no se pudo guardar.
 - Corregir los scripts en `scripts/train.py` y `scripts/predict.py` (sin cercas de Markdown, leyendo el manifiesto), dejando los originales intactos en la raíz.
 - Añadir pruebas pytest (unitarias con dobles/`mongomock`; integración con `DB_Frutas_Inpahu_test` y marcador `integration`), incluida una prueba de regresión contra `app.py`.
+- Crear el tag de Git `pre-refactor` antes de tocar `app.py` y capturar previamente una línea base de clase y confianza con imágenes de referencia, de modo que la versión heredada se recupere en un comando y la regresión se ejecute antes y después del refactor.
 - Ampliar `.gitignore`, proponer `.gitattributes`, crear `docs/`, `CHANGELOG.md` y actualizar `README.md` de forma incremental.
 - **BREAKING** para el despliegue: la aplicación pasa a requerir una URI de Atlas y variables de entorno; sin ellas, se degradará con avisos claros en lugar de fallar sin mensaje.
 
@@ -70,7 +71,7 @@ Hechos proporcionados por el solicitante que **sí se confirmaron**: cercas de M
 - **Archivos nuevos:** paquetes `frontend/`, `backend/`, `ml/`, `scripts/`, `tests/`, `docs/`; `ml/class_manifest.json`; `.env.example`; `.gitattributes`; `CHANGELOG.md`; specs de este cambio.
 - **Archivos existentes modificados de forma controlada:** `app.py`, `requirements.txt`, `.gitignore`, `README.md`.
 - **Dependencias nuevas previstas:** `pymongo`, `python-dotenv`, `pytest`, `mongomock` (y `streamlit` ya presente). Las versiones se fijarán en `requirements.txt` durante la implementación.
-- **Sistemas externos:** MongoDB Atlas (base `DB_Frutas_Inpahu`, colecciones `fruits` y `predictions`; base de pruebas `DB_Frutas_Inpahu_test`). No se escriben credenciales reales en ningún artefacto.
+- **Sistemas externos:** MongoDB Atlas (base `DB_Frutas_Inpahu`, colecciones `fruits` y `predictions`; base de pruebas `DB_Frutas_Inpahu_test`). El solicitante confirmó que el cluster existe y hay acceso, así que no se aprovisiona nada; la URI se entrega fuera del repositorio. No se escriben credenciales reales en ningún artefacto.
 
 ## Riesgos
 
@@ -78,12 +79,12 @@ Hechos proporcionados por el solicitante que **sí se confirmaron**: cercas de M
 - **Seguridad de secretos:** el notebook contiene credenciales de Kaggle en salidas y `.gitignore` no las cubre. Mitigación: exclusiones nuevas y advertencia documentada sin reproducir valores.
 - **Fallo de Atlas:** la experiencia de usuario no debe desaparecer si la base no responde. Mitigación: predicción visible + aviso, con `MongoConnectionError` y sus subtipos.
 - **Cambios de fin de línea:** ruido en diffs y conflictos. Mitigación: `.gitattributes`.
-- **Licencia/hosting de Atlas:** se asume que el solicitante dispone de un cluster y de la URI; este cambio no la aprovisiona.
+- **Dos puntos de entrada desincronizados:** mantener `app.py` y un `streamlit_app.py` paralelo duplicaría lógica y clases. Mitigación: un único `app.py` delgado, tag `pre-refactor` y línea base de regresión antes del cambio.
 
 ## Fuera de alcance
 
 - Reentrenar, reemplazar o mover `modelo_frutas.keras` ni el notebook; reconocer clases distintas a las cinco entrenadas.
-- Mover el modelo a `models/` o el notebook a `notebooks/` (solo se propone como opción sujeta a aprobación).
+- Mover el modelo a `models/` o el notebook a `notebooks/`: se deja para un cambio posterior y aparte, una vez que las pruebas de este cambio pasen.
 - Limpiar o reescribir el notebook, descargar el dataset, aprovisionar Atlas ni escribir credenciales reales.
 - Autenticación de usuarios, control de acceso, API HTTP, despliegue, migraciones automáticas de datos ni borrado de la base de producción.
 - Cambios de commits, remotos o historial de Git.

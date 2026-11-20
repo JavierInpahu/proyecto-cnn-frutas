@@ -39,6 +39,10 @@ El sistema SHALL incluir pruebas que cubran conexión, CRUD de frutas, registro 
 - **WHEN** se ejecuta la prueba de regresión con una imagen de referencia
 - **THEN** se verifica que la clase y la confianza coinciden con `app.py`
 
+#### Scenario: Línea base heredada
+- **WHEN** antes de refactorizar `app.py` se capturan las salidas de las imágenes de referencia
+- **THEN** esas salidas se guardan como línea base y la prueba de regresión se ejecuta primero contra esa línea base y después contra la arquitectura evolucionada
+
 #### Scenario: Preprocesamiento
 - **WHEN** se ejecutan las pruebas de imagen
 - **THEN** se validan los rechazos de formato y tamaño y la forma `(1, 100, 100, 3)` sin división entre 255

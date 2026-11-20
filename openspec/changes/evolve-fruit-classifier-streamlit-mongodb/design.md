@@ -6,19 +6,22 @@ El repositorio contiene una aplicación Streamlit de un solo archivo (`app.py`, 
 
 Restricciones que condicionan el diseño: el modelo no se reentrena ni se mueve; `app.py`, `train.py`, `predict.py`, el notebook, `modelo_frutas.keras` y `README.md` se conservan como archivos (sin borrado, renombrado, movimiento ni reemplazo destructivo); ningún artefacto contiene credenciales reales; la salida debe ser idéntica a la de `app.py`.
 
+Decisiones ya confirmadas por el solicitante: `app.py` será el único punto de entrada (sin `streamlit_app.py`); antes del refactor se creará el tag `pre-refactor` y se capturará una línea base de regresión con imágenes de referencia; el cluster de Atlas existe y hay acceso; el manifiesto contendrá también nombre científico y descripción para las cinco clases; el modelo y el notebook se quedan en la raíz y su traslado se delega a un cambio posterior.
+
 ## Goals / Non-Goals
 
 **Goals:**
 - Separar interfaz, servicios, repositorios, acceso a datos y machine learning con dependencias unidireccionales.
 - Centralizar clases, configuración y errores de dominio en un solo lugar por responsabilidad.
 - Persistir catálogo e historial en Atlas con un modelo de datos de cinco campos por documento.
-- Mantener la paridad funcional exacta del pipeline de imagen y de la predicción.
+- Mantener la paridad funcional exacta del pipeline de imagen y de la predicción, verificada contra una línea base anterior al refactor.
+- Mantener un único punto de entrada (`app.py`) y una sola fuente de verdad para clases y metadatos.
 - Dejar una base de pruebas automatizadas y documentación operativa.
 
 **Non-Goals:**
 - Reentrenar, mover o sustituir el modelo; reconocer más de las cinco clases entrenadas.
 - Limpiar el notebook ni descargar datasets de Kaggle.
-- Aprovisionar el cluster de Atlas ni escribir su URI real.
+- Aprovisionar el cluster de Atlas (ya existe y hay acceso) ni escribir su URI real.
 - Añadir autenticación de usuarios, API HTTP, despliegue o migraciones automáticas de datos de producción.
 
 ## Árbol definitivo
@@ -199,9 +202,11 @@ MODEL_PATH=modelo_frutas.keras
 5. **Caché del modelo en una sola capa.** `ModelLoader` mantiene la instancia cargada y la vista usa el mecanismo de caché de Streamlit en el entrypoint. Alternativa descartada: cargar el modelo en cada predicción (20 MB por petición).
 6. **Unicidad por collation, no por campo extra.** Permite `name` único ignorando mayúsculas sin superar cinco campos. Alternativa descartada: un campo `name_normalized` (rompería el límite).
 7. **Persistencia tolerante a fallos.** `ClassificationService` intenta guardar y captura `MongoConnectionError`; la vista muestra la predicción con un aviso. Alternativa descartada: abortar la predicción si Atlas cae (rompería la función principal).
-8. **`app.py` como entrypoint delgado y scripts nuevos en `scripts/`.** Se interpreta «no sobrescribir» como «no reemplazar de forma destructiva»: el archivo permanece y delega en `frontend/`; los originales `train.py` y `predict.py` siguen intactos en la raíz y las versiones corregidas viven en `scripts/`. Alternativa descartada: borrar los originales o sobrescribirlos sin control.
+8. **Un único `app.py` delgado, protegido por tag y línea base.** Se interpreta «no sobrescribir» como «no reemplazar de forma destructiva»: el archivo permanece y delega en `frontend/`, manteniendo `streamlit run app.py`. Antes del refactor se crea el tag `git tag pre-refactor` (sin commits) y se capturan clase y confianza de imágenes de referencia con la versión heredada; la regresión se ejecuta contra esa línea base y de nuevo tras el cambio. Alternativa descartada: crear `streamlit_app.py`, porque dejaría dos puntos de entrada que se desincronizan y mantendría duplicada la lista de clases. Los originales `train.py` y `predict.py` siguen intactos en la raíz; las versiones corregidas viven en `scripts/`.
 9. **Pruebas unitarias con dobles/`mongomock`; integración marcada.** Ninguna prueba unitaria abre conexión de red. Alternativa descartada: usar la base de desarrollo en todas las pruebas.
 10. **`.gitattributes` con normalización de fin de línea.** El árbol está limpio hoy, pero `core.autocrlf=true` sin `.gitattributes` deja el diff expuesto a CRLF/LF.
+11. **Manifiesto con metadatos de las cinco clases.** `ml/class_manifest.json` incluye `name`, `scientific_name` y `description` en orden de salida; es la única fuente para el modelo, el entrenamiento, la predicción y la siembra de Atlas. La interfaz lee el catálogo ya sembrado y permite ajustar descripciones en Atlas sin editar código ni el manifiesto. Alternativa descartada: dejar los metadatos vacíos y completarlos a mano, que rompería la fuente única de verdad.
+12. **Atlas existente, sin aprovisionamiento en este cambio.** El solicitante confirmó que el cluster y el acceso existen; se usa la URI configurada fuera del repositorio y se valida la conexión antes de crear índices o sembrar. Alternativa descartada: asumir un cluster nuevo o guardar la URI en el repositorio.
 
 ## Risks / Trade-offs
 
@@ -211,31 +216,34 @@ MODEL_PATH=modelo_frutas.keras
 - [Atlas caído] → Resultado visible con aviso; los servicios de catálogo informan el error en lugar de dejar la interfaz en blanco.
 - [Duplicados por case] → Índice único con collation y validación previa en el repositorio.
 - [Ruido CRLF/LF] → `.gitattributes` y una sola pasada de normalización controlada.
-- [Siembra con datos incompletos] → El manifiesto aporta el nombre; los metadatos opcionales que falten quedan vacíos y se completan desde administración (no se inventan nombres científicos).
+- [Puntos de entrada duplicados] → Un solo `app.py`, tag `pre-refactor` y línea base de regresión antes del refactor.
+- [Pérdida de la versión heredada] → El tag `pre-refactor` permite recuperar `app.py` en un comando sin commits ni reescritura de historial.
+- [Descripción editada en Atlas distinta del manifiesto] → El manifiesto es fuente de verdad solo para la siembra inicial; los ajustes posteriores se hacen desde la interfaz y se documentan como datos de Atlas, sin cambiar código.
 - [Coste de dependencias nuevas] → Cuatro paquetes adicionales (`pymongo`, `python-dotenv`, `pytest`, `mongomock`) con versiones fijadas en `requirements.txt`.
 
 ## Plan de migración y reversión
 
-1. **Preparación:** confirmar que existe una URI de Atlas y permisos de lectura/escritura; no se guarda en Git. Verificar la conexión con `scripts/check_mongo_connection.py`.
+0. **Línea base y tag, antes de tocar código:** crear `git tag pre-refactor` (sin commits) y registrar clase y confianza de `app.py` para un conjunto de imágenes de referencia; ejecutar la prueba de regresión contra esa línea base.
+1. **Preparación:** usar la URI del cluster existente con permisos de lectura/escritura; no se guarda en Git. Verificar la conexión con `scripts/check_mongo_connection.py` una vez creado el script.
 2. **Instalación:** ampliar `requirements.txt`, crear `.env` local ignorado a partir de `.env.example` y aplicar `.gitattributes`.
 3. **Estructura:** crear los paquetes y el manifiesto sin tocar los archivos protegidos; mantener `app.py` funcionando hasta que el nuevo entrypoint esté listo.
-4. **Datos:** crear índices, exportar una copia de seguridad de las colecciones antes de cualquier siembra y ejecutar la siembra idempotente. La siembra nunca sobrescribe nombres existentes.
+4. **Datos:** crear índices, exportar una copia de seguridad de las colecciones antes de cualquier siembra y ejecutar la siembra idempotente desde el manifiesto (nombre, nombre científico y descripción). La siembra nunca sobrescribe nombres existentes.
 5. **Corte:** sustituir el cuerpo de `app.py` por el delegado a `frontend/` y verificar la prueba de regresión y las cinco secciones.
 6. **Verificación:** ejecutar pruebas unitarias, luego las de integración contra `DB_Frutas_Inpahu_test`, y revisar que no haya secretos en el diff.
-7. **Reversión:** restaurar el contenido anterior de `app.py`, `requirements.txt`, `.gitignore` y `README.md` desde el control de versiones sin reescribir historial; dejar de usar el nuevo entrypoint y conservar la copia de seguridad de las colecciones. No se eliminan datos de producción sin aprobación expresa. El modelo y el notebook nunca participan en la reversión.
+7. **Reversión:** recuperar `app.py` desde el tag con `git checkout pre-refactor -- app.py` y restaurar los demás archivos modificados desde el control de versiones, sin commits ni reescritura de historial; conservar la copia de seguridad de las colecciones. No se eliminan datos de producción sin aprobación expresa. El modelo y el notebook nunca participan en la reversión.
 
 ## Supuestos
 
 - «No eliminar, renombrar, mover ni sobrescribir» significa conservar la identidad y el contenido protegido frente a reemplazos destructivos; se permite la refundición controlada de `app.py` como entrypoint y la ampliación incremental de `README.md`.
 - Python 3.11 o compatible, según el README actual.
-- El solicitante dispondrá de un cluster Atlas y de su URI; este cambio solo define la plantilla con `REEMPLAZAR_POR_URI_DE_ATLAS`.
-- El manifiesto puede incluir metadatos opcionales (`scientific_name`, `description`) por clase; si no están presentes, la siembra no inventa valores.
+- El cluster de Atlas existe y hay acceso; la URI se entrega fuera del repositorio y este cambio solo define la plantilla con `REEMPLAZAR_POR_URI_DE_ATLAS`.
+- El manifiesto incluye `scientific_name` y `description` para las cinco clases; son la fuente de la siembra inicial y no se inventan valores.
+- No se crea `streamlit_app.py`: `app.py` es el único punto de entrada, protegido por el tag `pre-refactor` y por la línea base de regresión.
 - El catálogo puede contener frutas que el modelo actual no clasifica; el sistema nunca afirma reconocerlas.
 - La interfaz se ejecuta con `python -m streamlit run app.py`, conservando el comando documentado.
 
 ## Preguntas abiertas
 
-- ¿Se prefiere conservar `app.py` completamente intacto como demo heredada y crear un `streamlit_app.py` nuevo? La propuesta asume el entrypoint delgado; cambiar esta decisión afectaría solo al archivo de arranque y a la documentación.
-- ¿Existe ya un cluster Atlas con permisos para crear índices y ejecutar la siembra en `DB_Frutas_Inpahu`?
-- ¿Deben incluirse nombres científicos y descripciones reales en `ml/class_manifest.json` o se completarán manualmente desde Administración de frutas?
-- ¿Se autoriza mover el modelo a `models/` y el notebook a `notebooks/` en un cambio posterior? En este cambio se mantienen en la raíz.
+Ninguna pendiente: el solicitante confirmó las cuatro decisiones (único `app.py` delgado, cluster de Atlas disponible, metadatos en el manifiesto y traslado diferido).
+
+Cambio posterior, fuera de este alcance: mover `modelo_frutas.keras` a `models/` y el notebook a `notebooks/` una vez que las pruebas pasen. Cualquier reentrenamiento para nuevas clases también se trata por separado.

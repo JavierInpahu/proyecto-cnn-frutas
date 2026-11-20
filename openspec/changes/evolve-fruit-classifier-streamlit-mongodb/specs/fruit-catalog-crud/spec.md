@@ -84,15 +84,19 @@ El sistema SHALL eliminar una fruta solo después de una confirmación explícit
 - **THEN** la fruta permanece sin cambios
 
 ### Requirement: RF-12 Siembra desde el manifiesto
-El sistema SHALL poblar el catálogo desde el manifiesto de clases sin crear duplicados.
+El sistema SHALL poblar el catálogo desde el manifiesto de clases sin crear duplicados, copiando en cada fruta el nombre, el nombre científico y la descripción definidos allí.
 
 #### Scenario: Primera siembra
 - **WHEN** se siembra el catálogo con un manifiesto de cinco clases y la colección está vacía
-- **THEN** se crean cinco frutas activas, una por clase
+- **THEN** se crean cinco frutas activas, una por clase, con `scientific_name` y `description` tomados del manifiesto
 
 #### Scenario: Siembra repetida
 - **WHEN** se ejecuta de nuevo la siembra con el mismo manifiesto
 - **THEN** no se crean frutas nuevas ni se lanza un error de duplicado
+
+#### Scenario: Ajuste posterior de descripciones
+- **WHEN** se edita la descripción de una fruta desde la administración de la interfaz
+- **THEN** el cambio se persiste en Atlas sin modificar el manifiesto ni el código
 
 ### Requirement: RNF-02 Representación acotada del catálogo
 El sistema SHALL almacenar como máximo cinco campos por documento de fruta, incluido `_id`, y SHALL usar ObjectId en lugar de contadores autoincrementales.
