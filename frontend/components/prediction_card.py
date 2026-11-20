@@ -9,7 +9,7 @@ def render_prediction_card(
     fruit_name: str, confidence: float, probabilities, class_names
 ) -> None:
     st.success(f"Fruta predicha: {fruit_name}")
-    st.info(f"Confianza del modelo: {confianza:.2f}%")
+    st.info(f"Confianza del modelo: {confidence:.2f}%")
     if confidence < 60:
         st.warning(
             "La confianza es baja. Prueba con una foto donde aparezca una sola "
