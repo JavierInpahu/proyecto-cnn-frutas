@@ -1,17 +1,31 @@
-"""Vista de inicio."""
+"""Vista de inicio - Reconocimiento de frutas."""
 
 from __future__ import annotations
 
 import streamlit as st
 
+from frontend.components.image_uploader import render_image_uploader
+from frontend.components.prediction_card import render_prediction_card
 
-def render() -> None:
-    st.title("Clasificador de Frutas con CNN")
-    st.write(
-        "Sube una imagen para clasificarla entre las cinco clases entrenadas: "
-        "Apple Golden 1, Banana 1, Orange 1, Grape Blue 1 y Pineapple 1."
-    )
-    st.info(
-        "Utiliza el menú lateral para navegar a Reconocimiento, Historial, "
-        "Administración de frutas o Estadísticas."
-    )
+
+def render(servicio_clasificacion, nombres_clase) -> None:
+    st.title("Reconocimiento de frutas")
+    archivo = render_image_uploader()
+    if archivo is None:
+        return
+    if st.button("Clasificar imagen", type="primary"):
+        with st.spinner("Clasificando..."):
+            try:
+                resultado = servicio_clasificacion.classify(
+                    archivo, getattr(archivo, "name", "imagen"), persist=True
+                )
+            except Exception as exc:  # errores de imagen o modelo
+                st.error(f"No se pudo procesar la imagen: {exc}")
+                return
+        render_prediction_card(
+            resultado.fruit_name, resultado.confidence, resultado.probabilities, nombres_clase
+        )
+        if not resultado.saved and resultado.warning:
+            st.warning(resultado.warning)
+        elif resultado.saved:
+            st.caption("Predicción registrada en el historial.")

@@ -3,13 +3,11 @@ import streamlit as st
 from backend.config.settings import MongoConfigurationError, Settings
 from backend.database.mongo_connection import MongoConnection
 from backend.models.exceptions import ModelMismatchError, MongoConnectionError
-from backend.repositories.fruit_repository import FruitRepository
 from backend.repositories.prediction_repository import PredictionRepository
 from backend.services.classification_service import ClassificationService
-from backend.services.fruit_service import FruitService
 from backend.services.prediction_service import PredictionService
 from frontend import navigation
-from frontend.views import administracion_frutas, estadisticas, historial, inicio, reconocimiento
+from frontend.views import estadisticas, historial, inicio
 from ml.image_processor import ImageProcessor
 from ml.model_loader import ModelLoader
 
@@ -39,17 +37,12 @@ def componer_servicios():
     manifiesto = cargador.manifest()
 
     if base_disponible:
-        repositorio_frutas = FruitRepository(
-            connection.get_collection(settings.fruits_collection)
-        )
         repositorio_predicciones = PredictionRepository(
             connection.get_collection(settings.predictions_collection)
         )
     else:  # pragma: no cover - sin red, las vistas informan el error al usarlo
-        repositorio_frutas = None
         repositorio_predicciones = None
 
-    servicio_frutas = FruitService(repositorio_frutas, manifiesto)
     servicio_predicciones = PredictionService(repositorio_predicciones)
     servicio_clasificacion = ClassificationService(
         cargador,
@@ -59,7 +52,6 @@ def componer_servicios():
     )
     return (
         servicio_clasificacion,
-        servicio_frutas,
         servicio_predicciones,
         nombres_clase,
     )
@@ -74,7 +66,6 @@ def main() -> None:
     try:
         (
             servicio_clasificacion,
-            servicio_frutas,
             servicio_predicciones,
             nombres_clase,
         ) = componer_servicios()
@@ -91,13 +82,9 @@ def main() -> None:
     seccion = navigation.render_navigation()
 
     if seccion == "inicio":
-        inicio.render()
-    elif seccion == "reconocimiento":
-        reconocimiento.render(servicio_clasificacion, nombres_clase)
+        inicio.render(servicio_clasificacion, nombres_clase)
     elif seccion == "historial":
         historial.render(servicio_predicciones, nombres_clase)
-    elif seccion == "administracion_frutas":
-        administracion_frutas.render(servicio_frutas)
     elif seccion == "estadisticas":
         estadisticas.render(servicio_predicciones, nombres_clase)
 

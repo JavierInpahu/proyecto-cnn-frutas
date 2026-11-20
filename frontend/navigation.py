@@ -1,4 +1,4 @@
-"""Navegación entre las cinco secciones de la aplicación."""
+"""Navegación entre las tres secciones de la aplicación."""
 
 from __future__ import annotations
 
@@ -6,9 +6,7 @@ import streamlit as st
 
 SECCIONES = {
     "inicio": "Inicio",
-    "reconocimiento": "Reconocimiento",
     "historial": "Historial",
-    "administracion_frutas": "Administración de frutas",
     "estadisticas": "Estadísticas",
 }
 
