@@ -10,19 +10,30 @@ from bson import ObjectId
 
 from backend.models.exceptions import NotFoundError, ValidationError
 
-CAMPOS_PREDICCION = {"_id", "fruit_name", "confidence", "image_name", "created_at"}
+CAMPOS_PREDICCION = {
+    "_id",
+    "fruit_name",
+    "confidence",
+    "image_name",
+    "created_at",
+    "thumbnail",
+    "image_data",
+    "image_meta",
+}
 
 
 @dataclass
 class Prediction:
-    """Predicción con cinco campos exactamente: _id, fruit_name, confidence, image_name, created_at."""
+    """Predicción con sus campos de historial y los datos recuperables de la imagen."""
 
     fruit_name: str
     confidence: float
     image_name: str
     created_at: Optional[datetime] = None
     id: Optional[ObjectId] = None
-    thumbnail: Optional[str] = None  # solo historial local; nunca se envía a Atlas
+    thumbnail: Optional[str] = None  # miniatura JPEG en base64, también en Atlas
+    image_data: Optional[str] = None  # imagen original en base64, recuperable del historial
+    image_meta: Optional[dict] = None  # ancho, alto, formato, peso y MIME del archivo
 
     def __post_init__(self) -> None:
         if self.created_at is None:
@@ -49,6 +60,12 @@ class Prediction:
         }
         if self.id is not None:
             documento["_id"] = self.id
+        if self.thumbnail is not None:
+            documento["thumbnail"] = self.thumbnail
+        if self.image_data is not None:
+            documento["image_data"] = self.image_data
+        if self.image_meta is not None:
+            documento["image_meta"] = self.image_meta
         return documento
 
     @classmethod
@@ -60,6 +77,8 @@ class Prediction:
             image_name=documento["image_name"],
             created_at=documento["created_at"],
             thumbnail=documento.get("thumbnail"),
+            image_data=documento.get("image_data"),
+            image_meta=documento.get("image_meta"),
         )
 
     def change_fruit_name(self, nuevo_nombre: str) -> "Prediction":

@@ -10,24 +10,51 @@ from ml.model_loader import ModelLoader
 from ml.predictor import predict as predict_image
 
 
-def _thumbnail(archivo: Any) -> str | None:
-    """Miniatura base64 para el historial local; Atlas sigue guardando solo el nombre."""
+# Un documento de MongoDB no puede superar los 16 MB; la base64 crece ~33 %.
+MAX_IMAGEN_BYTES = 12 * 1024 * 1024
+
+
+def _datos_imagen(archivo: Any) -> tuple[str | None, str | None, dict | None]:
+    """Devuelve miniatura, imagen original en base64 y metadatos del archivo.
+
+    La imagen completa se guarda en Atlas para poder recuperarla desde el
+    historial; la miniatura sirve para mostrarla sin descargar todo el dato.
+    """
     getter = getattr(archivo, "getvalue", None)
     if getter is None:
-        return None
+        return None, None, None
     try:
         import base64
         import io
 
         from PIL import Image
 
-        imagen = Image.open(io.BytesIO(getter())).convert("RGB")
-        imagen.thumbnail((180, 180))
-        buffer = io.BytesIO()
-        imagen.save(buffer, format="JPEG", quality=75)
-        return base64.b64encode(buffer.getvalue()).decode("ascii")
+        contenido = getter()
+        with Image.open(io.BytesIO(contenido)) as imagen:
+            ancho, alto = imagen.size
+            formato = imagen.format
+            rgb = imagen.convert("RGB")
+            rgb.thumbnail((180, 180))
+            buffer = io.BytesIO()
+            rgb.save(buffer, format="JPEG", quality=75)
+
+        metadatos = {
+            "width": int(ancho),
+            "height": int(alto),
+            "format": formato,
+            "size_bytes": len(contenido),
+            "mime_type": getattr(archivo, "type", None),
+        }
+        metadatos = {clave: valor for clave, valor in metadatos.items() if valor is not None}
+        miniatura = base64.b64encode(buffer.getvalue()).decode("ascii")
+        original = (
+            base64.b64encode(contenido).decode("ascii")
+            if len(contenido) <= MAX_IMAGEN_BYTES
+            else None
+        )
+        return miniatura, original, metadatos
     except Exception:
-        return None
+        return None, None, None
 
 
 class ClassificationResult:
@@ -80,12 +107,15 @@ class ClassificationService:
         saved = False
         warning = resultado.reason
         if persist and self.prediction_service is not None and not resultado.rejected:
+            thumbnail, image_data, image_meta = _datos_imagen(archivo)
             try:
                 self.prediction_service.register(
                     fruit_name=nombre_fruta,
                     confidence=confianza,
                     image_name=image_name,
-                    thumbnail=_thumbnail(archivo),
+                    thumbnail=thumbnail,
+                    image_data=image_data,
+                    image_meta=image_meta,
                 )
                 saved = True
             except MongoConnectionError as exc:

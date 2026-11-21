@@ -18,7 +18,7 @@ El sistema reconoce exactamente cinco clases, en este orden:
 
 - `app.py`: punto de entrada de la interfaz Streamlit (encabezado FRUIT VISION, menú lateral, carga drag & drop, resultados en tarjetas, historial, administración y estadísticas).
 - `frontend/`: tema CSS, navegación, componentes de carga/resultado y las tres vistas originales (Inicio, Historial y Estadísticas). El reconocimiento ocurre dentro de Inicio.
-- `backend/`: configuración, modelos de dominio, repositorios y servicios. Si MongoDB Atlas no está disponible, la app usa automáticamente un historial local en `data/history.json` y un catálogo local en `data/fruits.json`.
+- `backend/`: configuración, modelos de dominio, repositorios y servicios. El historial se guarda y se consulta en la colección `predictions` de MongoDB Atlas; no se genera ningún JSON en `data/`.
 - `ml/`: arquitectura de la CNN, entrenamiento y evaluación, carga del modelo, índices de clase, prototipos por clase, preprocesamiento y predicción con rechazo por confianza, estructura y distancia.
 - `scripts/`: descarga del dataset solo de las cinco clases, entrenamiento y predicción por línea de comandos.
 - `tests/`: pruebas unitarias reales, incluyendo muestras de una imagen por clase incluidas en `tests/fixtures/dataset_samples/`.
@@ -40,7 +40,7 @@ El dataset completo **no** se incluye en el ZIP para no inflarlo. Se descarga co
 pip install -r requirements.txt
 ```
 
-Opcional: copia `.env.example` a `.env` y rellena la URI de MongoDB Atlas si quieres usar el historial remoto:
+Copia `.env.example` a `.env` y rellena la URI de MongoDB Atlas: el historial necesita esa configuración.
 
 ```bash
 # Windows
@@ -49,7 +49,7 @@ copy .env.example .env
 cp .env.example .env
 ```
 
-Nunca compartas ni versiones el archivo `.env`. Sin él, la aplicación funciona igual con almacenamiento local.
+Nunca compartas ni versiones el archivo `.env`. Sin una URI válida, el historial no se puede guardar ni consultar.
 
 ## Descargar el dataset
 
@@ -76,10 +76,10 @@ python -m streamlit run app.py --server.port 8511
 El menú está en la barra lateral y la ruta activa se resalta en morado. Se conservan únicamente las tres rutas originales:
 
 1. **Inicio**: arrastra una foto JPG, JPEG o PNG (máx. 5 MB) a la zona de carga, pulsa **Analizar fruta** y revisa la tarjeta con la fruta, la confianza, las cinco probabilidades y la gráfica comparativa. Si la imagen se rechaza, la tarjeta dice únicamente **No reconocido**: no se muestra confianza, probabilidades ni gráfica, porque ninguna clase coincide.
-2. **Historial**: imágenes analizadas (cuando se usó historial local), fruta, confianza, fecha, filtros, corrección y borrado con confirmación.
+2. **Historial**: predicciones leídas desde Atlas con la imagen guardada (vista previa y botón de descarga) y sus metadatos (dimensiones, formato y peso), filtros, corrección y borrado con confirmación.
 3. **Estadísticas**: total de predicciones, confianza media y conteo por fruta.
 
-> El arranque es rápido: TensorFlow y el modelo se cargan solo cuando haces clic en **Analizar fruta**. Abrir Historial o Estadísticas no carga la red neuronal ni consulta MongoDB Atlas.
+> El arranque es rápido: TensorFlow y el modelo se cargan solo cuando haces clic en **Analizar fruta**. Abrir Historial o Estadísticas no carga la red neuronal; la conexión a Atlas se abre solo al consultar o guardar predicciones.
 
 Si la predicción queda por debajo del umbral, los dos primeros puntajes están demasiado cerca, la imagen parece ruido o su embedding queda lejos de los prototipos, la app muestra solo **No reconocido**. El resultado rechazado no devuelve nombre de fruta, confianza ni probabilidades: no hay una clase coincidente que justifique un porcentaje.
 
@@ -153,7 +153,7 @@ pytest -m integration
 
 - **Un solo punto de normalización**: la capa `normalizacion_unica` dentro del modelo. No hay divisiones entre 255 en la app ni en los scripts.
 - **Clases persistidas**: `ml/class_indices.json` se valida contra `ml/class_manifest.json` al cargar la app; si no coinciden o aún no se generó, la app muestra el estado “en preparación” en lugar de predecir con etiquetas erróneas.
-- **Historial sin romper lo existente**: se conservan los repositorios de MongoDB Atlas con el documento de cinco campos. El historial local añade una miniatura en base64 solo en JSON; Atlas sigue recibiendo únicamente `fruit_name`, `confidence`, `image_name` y `created_at`.
+- **Historial en Atlas**: la app usa `PredictionRepository` con el documento de cinco campos obligatorios (`_id`, `fruit_name`, `confidence`, `image_name`, `created_at`) más `image_data` (imagen original), `thumbnail` y `image_meta` para recuperar la imagen. No se crea `data/history.json`: las predicciones se guardan y se consultan en MongoDB.
 - **Interfaz**: Streamlit + CSS propio con paleta blanca/lavanda/morado, tarjetas con bordes suaves, media queries para pantallas pequeñas y estados de carga/error. El tema nativo se fija en `.streamlit/config.toml` para que botones y gráficas también usen morado.
 
 ## Atribución del dataset

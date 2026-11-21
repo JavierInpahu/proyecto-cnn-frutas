@@ -51,7 +51,7 @@ Regla de dependencias: `frontend` → `backend/services` → `backend/repositori
 1. La vista recibe el archivo de imagen.
 2. `ImageProcessor` valida extensión (JPG/JPEG/PNG, ≤ 5 MB) y preprocesa: RGB → 100×100 → `float32` → `(1, 100, 100, 3)`, **sin dividir entre 255**.
 3. `ModelLoader` carga `modelo_frutas.keras` (caché) y valida que sus salidas coincidan con el manifiesto.
-4. `ClassificationService` predice, devuelve fruta, confianza y probabilidades, e intenta guardar en el historial. Si Atlas falla, la predicción se muestra igual con un aviso.
+4. `ClassificationService` predice, devuelve fruta, confianza y probabilidades, y guarda la predicción en Atlas. Si Atlas falla, la predicción se muestra igual con un aviso.
 
 ## Modelo de datos
 

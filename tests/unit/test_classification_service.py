@@ -58,6 +58,45 @@ def test_clasificacion_devuelve_resultado_esperado() -> None:
     assert resultado.saved is False
 
 
+def test_clasificacion_guarda_miniatura_y_metadatos(imagen_png_valida) -> None:
+    """La imagen subida se reduce a miniatura y se describen sus metadatos."""
+
+    class _Archivo:
+        name = "foto.png"
+        type = "image/png"
+
+        def __init__(self, contenido) -> None:
+            self.contenido = contenido
+
+        def getvalue(self):
+            return self.contenido
+
+    registros = []
+
+    class _Servicio:
+        def register(self, **datos) -> None:
+            registros.append(datos)
+
+    servicio = ClassificationService(
+        model_loader=_CargadorFalso(),
+        image_processor=_ProcesadorFalso(np.zeros((1, 100, 100, 3), dtype=np.float32)),
+        prediction_service=_Servicio(),
+    )
+    resultado = servicio.classify(_Archivo(imagen_png_valida), "foto.png", persist=True)
+
+    import base64
+
+    assert resultado.saved is True
+    assert registros[0]["thumbnail"]
+    assert base64.b64decode(registros[0]["image_data"]) == imagen_png_valida
+    metadatos = registros[0]["image_meta"]
+    assert metadatos["width"] == 40
+    assert metadatos["height"] == 50
+    assert metadatos["format"] == "PNG"
+    assert metadatos["size_bytes"] == len(imagen_png_valida)
+    assert metadatos["mime_type"] == "image/png"
+
+
 def test_imagen_rechazada_no_se_guarda_ni_consulta_historial(monkeypatch) -> None:
     """Un rechazo no se persiste y la clasificación nunca lee imágenes guardadas."""
     from backend.services import classification_service as modulo

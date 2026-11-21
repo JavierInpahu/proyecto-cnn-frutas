@@ -18,6 +18,8 @@
 - Pruebas: `tests/unit/test_pipeline_consistency.py` y `tests/unit/test_app_startup.py`, además de muestras reales incluidas en `tests/fixtures/dataset_samples/`.
 
 ### Cambiado
+- El historial de predicciones se guarda y se consulta en la colección `predictions` de MongoDB Atlas; `app.py` ya no crea `data/history.json`.
+- El documento guarda también la imagen original en base64 (`image_data`), una miniatura JPEG y los metadatos (ancho, alto, formato, peso y MIME); el historial permite verla y descargarla.
 - `app.py` es ahora un punto de entrada delgado: compone servicios, aplica el tema y delega en `frontend/`.
 - `README.md` documenta instalación, dataset, entrenamiento, predicción, métricas reales y limitaciones.
 - `.gitignore` excluye `data/` para no versionar el dataset ni el historial local.

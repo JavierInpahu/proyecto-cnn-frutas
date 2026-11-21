@@ -1,8 +1,8 @@
 """FRUIT VISION — punto de entrada de la interfaz Streamlit.
 
 Arranque rápido: TensorFlow se importa y el modelo se carga únicamente cuando
-el usuario analiza una imagen. Las vistas de inicio, historial y estadísticas
-no cargan el modelo ni consultan Atlas al abrir la aplicación.
+el usuario analiza una imagen. El historial vive en MongoDB Atlas: la conexión
+se abre de forma diferida en el primer acceso, no al abrir la aplicación.
 """
 
 from __future__ import annotations
@@ -74,16 +74,56 @@ def _cargador_real():
     return ModelLoader(str(ARCHIVO_MODELO), str(MANIFIESTO))
 
 
+class _RepositorioAtlasDiferido:
+    """Repositorio de predicciones en Atlas que conecta solo en el primer uso.
+
+    Reemplaza al historial local en JSON: tanto el guardado como la consulta
+    pasan por ``PredictionRepository`` contra la colección configurada en
+    ``.env``. Los errores de conexión se propagan a quien llama.
+    """
+
+    def __init__(self) -> None:
+        self._conexion = None
+        self._real = None
+
+    @property
+    def real(self):
+        if self._real is None:
+            from backend.config.settings import Settings
+            from backend.database.mongo_connection import MongoConnection
+            from backend.repositories.prediction_repository import PredictionRepository
+
+            settings = Settings.from_env()
+            self._conexion = MongoConnection(settings)
+            self._real = PredictionRepository(
+                self._conexion.get_collection(settings.predictions_collection)
+            )
+        return self._real
+
+    def create(self, prediction):
+        return self.real.create(prediction)
+
+    def list_sorted(self, **filtros):
+        return self.real.list_sorted(**filtros)
+
+    def get_by_id(self, identificador):
+        return self.real.get_by_id(identificador)
+
+    def update_fruit_name(self, identificador, nuevo_nombre):
+        return self.real.update_fruit_name(identificador, nuevo_nombre)
+
+    def delete(self, identificador, confirmar=False):
+        return self.real.delete(identificador, confirmar=confirmar)
+
+
 @st.cache_resource(show_spinner="Preparando servicios…")
 def componer_servicios():
     """Compila capas y servicios sin cargar el modelo ni conectarse a Atlas."""
-    from backend.repositories.local_fruit_repository import LocalFruitRepository
-    from backend.repositories.local_prediction_repository import LocalPredictionRepository
     from backend.services.classification_service import ClassificationService
     from backend.services.prediction_service import PredictionService
 
-    repositorio_predicciones = LocalPredictionRepository("data/history.json")
-    repositorio_frutas = LocalFruitRepository("data/fruits.json")
+    repositorio_predicciones = _RepositorioAtlasDiferido()
+    servicio_predicciones = PredictionService(repositorio_predicciones)
     cargador = _CargadorDiferido()
     nombres_clase = cargador.class_names()
 
@@ -92,11 +132,11 @@ def componer_servicios():
             cargador,
             ImageProcessor(),
             nombres_clase,
-            PredictionService(repositorio_predicciones),
+            servicio_predicciones,
         ),
-        PredictionService(repositorio_predicciones),
+        servicio_predicciones,
         nombres_clase,
-        "local",
+        "atlas",
     )
     return servicios
 

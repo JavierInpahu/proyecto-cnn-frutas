@@ -21,12 +21,16 @@ class PredictionService:
         confidence: float,
         image_name: str,
         thumbnail: str | None = None,
+        image_data: str | None = None,
+        image_meta: dict | None = None,
     ) -> Prediction:
         prediccion = Prediction(
             fruit_name=fruit_name,
             confidence=confidence,
             image_name=image_name,
             thumbnail=thumbnail,
+            image_data=image_data,
+            image_meta=image_meta,
         )
         return self.repository.create(prediccion)
 

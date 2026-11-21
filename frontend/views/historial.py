@@ -11,8 +11,9 @@ from frontend.components.confirm_dialog import confirmar_borrado
 from frontend.theme import section_title
 
 
-def _miniatura(prediccion):
-    dato = getattr(prediccion, "thumbnail", None)
+def _imagen(prediccion):
+    """Imagen recuperada de Atlas: usa la original y, si falta, la miniatura."""
+    dato = getattr(prediccion, "image_data", None) or getattr(prediccion, "thumbnail", None)
     if not dato:
         return None
     try:
@@ -52,7 +53,7 @@ def render(prediction_service, class_names) -> None:
             st.markdown('<div class="fv-card">', unsafe_allow_html=True)
             col1, col2 = st.columns([1, 3])
             with col1:
-                imagen = _miniatura(prediccion)
+                imagen = _imagen(prediccion)
                 if imagen is not None:
                     st.image(imagen, use_container_width=True)
                 else:
@@ -60,7 +61,19 @@ def render(prediction_service, class_names) -> None:
                         '<div class="fv-metric" style="font-size:2rem">🖼️</div>',
                         unsafe_allow_html=True,
                     )
+                    st.caption("Sin imagen guardada")
             with col2:
+                metadatos = getattr(prediccion, "image_meta", None) or {}
+                detalles = []
+                if metadatos.get("width") and metadatos.get("height"):
+                    detalles.append(f"{metadatos['width']}×{metadatos['height']} px")
+                if metadatos.get("format"):
+                    detalles.append(str(metadatos["format"]))
+                if metadatos.get("size_bytes"):
+                    detalles.append(f"{metadatos['size_bytes'] / 1024:.0f} KB")
+                linea_metadatos = (
+                    f'<div class="fv-muted">{" · ".join(detalles)}</div>' if detalles else ""
+                )
                 st.markdown(
                     f"""
                     <div class="fv-kicker">Predicción</div>
@@ -68,9 +81,22 @@ def render(prediction_service, class_names) -> None:
                     <span class="fv-chip">{prediccion.confidence:.1f}% de confianza</span>
                     <div class="fv-muted fv-date">{prediccion.created_at}</div>
                     <div class="fv-muted">{prediccion.image_name}</div>
+                    {linea_metadatos}
                     """,
                     unsafe_allow_html=True,
                 )
+                datos_originales = getattr(prediccion, "image_data", None)
+                if datos_originales:
+                    try:
+                        st.download_button(
+                            "⬇ Descargar imagen",
+                            data=base64.b64decode(datos_originales),
+                            file_name=prediccion.image_name,
+                            mime=metadatos.get("mime_type") or "application/octet-stream",
+                            key=f"descargar_{prediccion.id}",
+                        )
+                    except (ValueError, TypeError):
+                        pass
                 with st.expander("Corregir o eliminar", expanded=False):
                     nuevo_nombre = st.text_input(
                         "Nombre de la fruta",

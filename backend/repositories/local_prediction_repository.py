@@ -59,6 +59,8 @@ class LocalPredictionRepository:
         documento["_id"] = prediction.id
         documento["created_at"] = _fecha_utc(prediction.created_at).isoformat()
         documento["thumbnail"] = prediction.thumbnail
+        documento["image_data"] = prediction.image_data
+        documento["image_meta"] = prediction.image_meta
         documentos.append(documento)
         self._escribir(documentos)
         return prediction

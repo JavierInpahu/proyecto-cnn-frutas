@@ -31,6 +31,38 @@ def test_registro_almacena_cinco_campos_y_utc() -> None:
     )
 
 
+def test_datos_de_imagen_se_guardan_y_recuperan() -> None:
+    repo = PredictionRepository(_coleccion())
+    thumbnail = "ZmFrZS1qcGVn"
+    imagen = "aW1hZ2VuLW9yaWdpbmFs"
+    metadatos = {
+        "width": 40,
+        "height": 50,
+        "format": "PNG",
+        "size_bytes": 123,
+        "mime_type": "image/png",
+    }
+    creada = repo.create(
+        Prediction(
+            fruit_name="Banana 1",
+            confidence=82.5,
+            image_name="foto.png",
+            thumbnail=thumbnail,
+            image_data=imagen,
+            image_meta=metadatos,
+        )
+    )
+    documento = repo.collection.find_one({"_id": creada.id})
+    assert documento["thumbnail"] == thumbnail
+    assert documento["image_data"] == imagen
+    assert documento["image_meta"] == metadatos
+
+    recuperada = repo.get_by_id(creada.id)
+    assert recuperada.thumbnail == thumbnail
+    assert recuperada.image_data == imagen
+    assert recuperada.image_meta == metadatos
+
+
 def test_confianza_fuera_de_rango_no_se_almacena() -> None:
     repo = PredictionRepository(_coleccion())
     with pytest.raises(ValidationError):

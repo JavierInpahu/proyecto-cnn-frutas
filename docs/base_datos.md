@@ -24,7 +24,7 @@ Máximo cinco campos por documento, incluido `_id`. Sin contadores autoincrement
 
 ## Colección `predictions` (historial de predicciones)
 
-Máximo cinco campos por documento, incluido `_id`. Nunca se almacena el binario de la imagen, solo su nombre.
+Cinco campos obligatorios más dos opcionales para recuperar la imagen del historial. Nunca se almacena el binario original.
 
 | Campo | Tipo | Restricción |
 | --- | --- | --- |
@@ -33,6 +33,9 @@ Máximo cinco campos por documento, incluido `_id`. Nunca se almacena el binario
 | `confidence` | Double | Entre 0 y 100 |
 | `image_name` | String | Solo el nombre del archivo de imagen |
 | `created_at` | Date | UTC; índice descendente |
+| `thumbnail` | String | Opcional; JPEG base64 de hasta 180×180 (calidad 75) |
+| `image_data` | String | Opcional; imagen original en base64 (máx. 12 MB para no superar el límite de documento) |
+| `image_meta` | Document | Opcional; `width`, `height`, `format`, `size_bytes`, `mime_type` |
 
 Índices:
 - `ix_predictions_created_at_desc`: descendente sobre `created_at`.
@@ -41,6 +44,6 @@ Máximo cinco campos por documento, incluido `_id`. Nunca se almacena el binario
 
 El catálogo se siembra idempotentemente desde `ml/class_manifest.json`: nombre, nombre científico y descripción provienen del manifiesto. Las descripciones pueden ajustarse después desde la interfaz (Administración de frutas) sin modificar el manifiesto ni el código.
 
-## Ausencia de imágenes
+## Imágenes en el historial
 
-El sistema no almacena imágenes ni archivos binarios en la base de datos.
+Se guarda la imagen original en base64 (`image_data`) para poder recuperarla y descargarla desde el historial, junto con una miniatura JPEG reducida (180×180, calidad 75) para mostrarla sin cargar todo el dato y sus metadatos (dimensiones, formato, peso y tipo MIME). El cargador de la interfaz limita el archivo a 5 MB; con el tope adicional de 12 MB del código, el documento no supera el límite de 16 MB de MongoDB.
