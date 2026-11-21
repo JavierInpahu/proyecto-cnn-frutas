@@ -1,0 +1,91 @@
+{
+  "classes": [
+    "Apple Golden 1",
+    "Banana 1",
+    "Orange 1",
+    "Grape Blue 1",
+    "Pineapple 1"
+  ],
+  "class_to_index": {
+    "Apple Golden 1": 0,
+    "Banana 1": 1,
+    "Orange 1": 2,
+    "Grape Blue 1": 3,
+    "Pineapple 1": 4
+  },
+  "index_to_class": {
+    "0": "Apple Golden 1",
+    "1": "Banana 1",
+    "2": "Orange 1",
+    "3": "Grape Blue 1",
+    "4": "Pineapple 1"
+  },
+  "input_size": [
+    100,
+    100
+  ],
+  "input_range": [
+    0,
+    255
+  ],
+  "normalization": "rescaling_1_over_255_inside_model",
+  "confidence_threshold": 0.9,
+  "trained_at": "2026-11-20T23:34:40.874315+00:00",
+  "metrics": {
+    "accuracy": 1.0,
+    "precision_weighted": 1.0,
+    "recall_weighted": 1.0,
+    "f1_weighted": 1.0,
+    "precision_macro": 1.0,
+    "recall_macro": 1.0,
+    "f1_macro": 1.0,
+    "confusion_matrix": [
+      [
+        160,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        166,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        160,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        328,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        166
+      ]
+    ],
+    "test_samples": 980,
+    "confidence_threshold": 0.9,
+    "dataset_source": "https://github.com/fruits-360/fruits-360-100x100",
+    "normalization": "rescaling_1_over_255_inside_model",
+    "class_order": [
+      "Apple Golden 1",
+      "Banana 1",
+      "Orange 1",
+      "Grape Blue 1",
+      "Pineapple 1"
+    ]
+  }
+}

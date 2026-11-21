@@ -15,11 +15,18 @@ class PredictionService:
     def __init__(self, repository) -> None:
         self.repository = repository
 
-    def register(self, fruit_name: str, confidence: float, image_name: str) -> Prediction:
+    def register(
+        self,
+        fruit_name: str,
+        confidence: float,
+        image_name: str,
+        thumbnail: str | None = None,
+    ) -> Prediction:
         prediccion = Prediction(
             fruit_name=fruit_name,
             confidence=confidence,
             image_name=image_name,
+            thumbnail=thumbnail,
         )
         return self.repository.create(prediccion)
 

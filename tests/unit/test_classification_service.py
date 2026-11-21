@@ -58,6 +58,46 @@ def test_clasificacion_devuelve_resultado_esperado() -> None:
     assert resultado.saved is False
 
 
+def test_imagen_rechazada_no_se_guarda_ni_consulta_historial(monkeypatch) -> None:
+    """Un rechazo no se persiste y la clasificación nunca lee imágenes guardadas."""
+    from backend.services import classification_service as modulo
+    from ml.predictor import PredictionOutcome
+
+    class _Historial:
+        def __init__(self) -> None:
+            self.registros = 0
+
+        def register(self, *args, **kwargs) -> None:
+            self.registros += 1
+
+        def list_sorted(self):
+            raise AssertionError("La clasificación no debe leer el historial.")
+
+    historial = _Historial()
+
+    def _prediccion_rechazada(*args, **kwargs):
+        return PredictionOutcome(
+            top_index=-1,
+            fruit_name="No reconocido",
+            confidence=0.0,
+            probabilities=[],
+            class_names=["Apple Golden 1", "Banana 1", "Orange 1", "Grape Blue 1", "Pineapple 1"],
+            rejected=True,
+            reason="La imagen no se parece a ninguna de las frutas entrenadas.",
+        )
+
+    monkeypatch.setattr(modulo, "predict_image", _prediccion_rechazada)
+    servicio = ClassificationService(
+        model_loader=_CargadorFalso(),
+        image_processor=_ProcesadorFalso(np.zeros((1, 100, 100, 3), dtype=np.float32)),
+        prediction_service=historial,
+    )
+    resultado = servicio.classify("imagen.jpg", "foto.png", persist=True)
+    assert resultado.rejected is True
+    assert resultado.saved is False
+    assert historial.registros == 0
+
+
 def test_fallo_de_atlas_no_oculta_la_prediccion() -> None:
     entrada = np.zeros((1, 100, 100, 3), dtype=np.float32)
     servicio_prediccion = _ServicioPrediccionFalso()

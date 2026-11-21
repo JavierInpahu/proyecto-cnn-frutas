@@ -1,7 +1,10 @@
-"""Prueba de regresión contra la aplicación original `app.py`.
+"""Prueba de regresión de la interfaz de clasificación.
 
-Compara la arquitectura evolucionada con la línea base capturada en la etapa 1
-(`tests/fixtures/legacy_baseline.json`) para las mismas imágenes de referencia.
+Las imágenes de `legacy_baseline.json` son referencias ambiguas del modelo
+anterior, que les asignaba una fruta con alta confianza. Tras el reentrenamiento
+y la calibración OOD, esas mismas imágenes quedan lejos de los prototipos de las
+cinco clases: la regresión verifica que se rechazan sin devolver fruta ni
+porcentajes.
 """
 
 from __future__ import annotations
@@ -28,19 +31,19 @@ def servicio_clasificacion():
     )
 
 
-def test_regresion_reproduce_linea_base_heredada(servicio_clasificacion) -> None:
+def test_regresion_rechaza_referencias_ambiguo_sin_porcentajes(
+    servicio_clasificacion,
+) -> None:
     if not BASELINE.exists():
         pytest.skip("Línea base no capturada (etapa 1.6)")
     linea_base = json.loads(BASELINE.read_text(encoding="utf-8"))
-    for nombre_imagen, esperado in linea_base.items():
+    for nombre_imagen in linea_base:
         resultado = servicio_clasificacion.classify(
             FIXTURES / nombre_imagen, nombre_imagen, persist=False
         )
-        assert resultado.fruit_name == esperado["class"], (
-            f"{nombre_imagen}: se esperaba {esperado['class']} "
-            f"y se obtuvo {resultado.fruit_name}"
+        assert resultado.rejected is True, (
+            f"{nombre_imagen}: la referencia ambigua debería rechazarse"
         )
-        assert abs(resultado.confidence - esperado["confidence"]) < 1e-4, (
-            f"{nombre_imagen}: confianza esperada {esperado['confidence']} "
-            f"y obtenida {resultado.confidence}"
-        )
+        assert resultado.fruit_name == "No reconocido"
+        assert resultado.confidence == 0.0
+        assert resultado.probabilities == []

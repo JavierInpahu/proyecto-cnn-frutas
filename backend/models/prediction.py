@@ -22,6 +22,7 @@ class Prediction:
     image_name: str
     created_at: Optional[datetime] = None
     id: Optional[ObjectId] = None
+    thumbnail: Optional[str] = None  # solo historial local; nunca se envía a Atlas
 
     def __post_init__(self) -> None:
         if self.created_at is None:
@@ -58,6 +59,7 @@ class Prediction:
             confidence=documento["confidence"],
             image_name=documento["image_name"],
             created_at=documento["created_at"],
+            thumbnail=documento.get("thumbnail"),
         )
 
     def change_fruit_name(self, nuevo_nombre: str) -> "Prediction":

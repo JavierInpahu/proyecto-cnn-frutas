@@ -1,45 +1,43 @@
 # Registro de cambios
 
-## [No versionado] - Evolución a monolito modular con Streamlit y MongoDB Atlas
+## [FRUIT VISION final] - Recuperación, reentrenamiento y rediseño
+
+### Corregido
+- **Doble normalización eliminada**: el modelo conserva una única capa `Rescaling(1./255)` (`normalizacion_unica`) y todo el código de imagen/predicción entrega píxeles 0–255. Los antiguos scripts de la raíz (conteniendo cercas Markdown) se reemplazaron por wrappers ejecutables que delegan en `ml/predictor.py`.
+- **Modelo subentrenado reemplazado**: el modelo anterior clasificaba mal las imágenes de prueba (piña → Banana 100 %, manzana → Orange 100 %). Se reentrenó con las cinco clases de Fruits-360 y se guardó el mejor modelo por `val_accuracy`.
+- **Orden de clases robusto**: `ml/class_indices.json` persiste índice → clase y se valida contra `ml/class_manifest.json` antes de usar el modelo.
 
 ### Añadido
-- Arquitectura en capas con dependencias unidireccionales:
-  `frontend` → `backend/services` → `backend/repositories` → `backend/database` → Atlas,
-  y `backend/services` → `ml` → manifiesto/modelo.
-- Manifiesto único de clases en `ml/class_manifest.json` con nombre, nombre científico
-  y descripción de las cinco clases (`Apple Golden 1`, `Banana 1`, `Orange 1`,
-  `Grape Blue 1`, `Pineapple 1`).
-- Catálogo de frutas con CRUD, unicidad de nombre sin distinguir mayúsculas (índice
-  único con collation `strength: 2`) y siembra idempotente desde el manifiesto.
-- Historial de predicciones con registro, listado descendente, corrección de fruta
-  sin alterar `created_at`, filtros combinables y eliminación con confirmación.
-- Conexión a MongoDB Atlas (`DB_Frutas_Inpahu`) con clasificación de errores
-  (configuración, autenticación, permisos, red) y protección de secretos.
-- Comprobación de conexión ejecutable: `scripts/check_mongo_connection.py`.
-- Interfaz Streamlit con cinco secciones: Inicio, Reconocimiento, Historial,
-  Administración de frutas y Estadísticas.
-- Persistencia de predicciones tolerante a fallos: el resultado se muestra aunque
-  Atlas no responda.
-- Pruebas unitarias con `mongomock` y dobles; pruebas de integración marcadas con
-  `integration` sobre `DB_Frutas_Inpahu_test`; prueba de regresión contra `app.py`.
-- Scripts corregidos en `scripts/`: `train.py`, `predict.py` y `check_mongo_connection.py`
-  (los originales de la raíz se conservan intactos).
-- Documentación: `docs/requisitos.md`, `docs/arquitectura.md`, `docs/base_datos.md`,
-  `docs/conexion_mongodb.md`, `docs/pruebas.md` y este `CHANGELOG.md`.
+- `scripts/download_dataset.py`: descarga legítima y selectiva de las cinco clases desde `fruits-360/fruits-360-100x100` (CC BY-SA 4.0), sin credenciales de Kaggle.
+- `ml/config.py`, `ml/model.py`, `ml/train.py`, `ml/predictor.py`, `ml/class_indices.py`: configuración, arquitectura, entrenamiento/evaluación, predicción y persistencia de clases separadas.
+- `scripts/train.py`, `train.py`, `scripts/predict.py`, `predict.py`: entradas reproducibles para entrenar y predecir.
+- División entrenamiento/validación/prueba, aumento de datos, `EarlyStopping`, `ReduceLROnPlateau`, `ModelCheckpoint`, métricas reales en `reports/` y gráficas de curvas y matriz de confusión.
+- Rechazo de predicciones por baja confianza o margen insuficiente, con explicación de limitaciones.
+- Repositorios locales JSON (`backend/repositories/local_*_repository.py`) para que la app funcione sin MongoDB Atlas, conservando los repositorios de Atlas y el documento de predicción de cinco campos.
+- Rediseño visual completo: encabezado FRUIT VISION, menú con las tres rutas originales, zona de arrastrar y soltar, vista previa, tarjetas de resultado, barras y gráfica de probabilidades, historial con miniaturas y diseño responsive.
+- Pruebas: `tests/unit/test_pipeline_consistency.py` y `tests/unit/test_app_startup.py`, además de muestras reales incluidas en `tests/fixtures/dataset_samples/`.
 
 ### Cambiado
-- `app.py` es ahora un entrypoint delgado que delega en `frontend/`; se conserva el
-  archivo y el comando `python -m streamlit run app.py`.
-- `requirements.txt` añade `pymongo`, `python-dotenv`, `pytest` y `mongomock`.
-- `.gitignore` y `.gitattributes` amplían la protección de secretos, cachés y fin de línea.
+- `app.py` es ahora un punto de entrada delgado: compone servicios, aplica el tema y delega en `frontend/`.
+- `README.md` documenta instalación, dataset, entrenamiento, predicción, métricas reales y limitaciones.
+- `.gitignore` excluye `data/` para no versionar el dataset ni el historial local.
 
-### No cambiado (archivos protegidos)
-- `modelo_frutas.keras`: no se reentrena, mueve ni reemplaza; entrada 100×100×3 con
-  `Rescaling` incorporado, sin división entre 255.
-- `Proyecto_Final_CNN_Clasificacion_Frutas.ipynb`: sin cambios.
-- `train.py` y `predict.py` de la raíz: sin cambios.
-- `README.md`: ampliado de forma incremental, contenido original conservado.
+### Ajustes según revisión final
+- El menú vuelve a las tres rutas originales: Inicio, Historial y Estadísticas. El reconocimiento sigue viviendo dentro de Inicio.
+- Arranque rápido: TensorFlow y el modelo se importan de forma diferida solo al analizar una imagen; no se hace ping a Atlas al iniciar.
+- Menú único en la barra lateral, visible incluso en pantallas pequeñas.
+- Corregido `TypeError: 'DeltaGenerator' object is not iterable` en la vista de Estadísticas.
+- El estado del modelo dice “en preparación” mientras termina el entrenamiento, en lugar de mostrar errores en todas las vistas.
+- Paleta visual ajustada a blancos, lavanda y morado: se eliminaron los fondos oscuros y los acentos verdes/coral. `.streamlit/config.toml` fija el tema nativo y los colores de las gráficas.
+- Menú único en la barra lateral con la ruta activa en morado; se quitaron los botones repetidos del contenido y las tarjetas decorativas del inicio.
+- El botón de carga de imagen usa el mismo degradado morado. Mientras el modelo se entrena, el aviso aparece dentro del área de carga y el input queda deshabilitado.
+- Corregido `FrozenInstanceError` al guardar métricas sobre `ClassIndices` (dataclass congelada): se usa `dataclasses.replace`.
+- Añadido `scripts/train.py --evaluate-only` para recalcular métricas, matriz y artefactos sin repetir el entrenamiento; el historial real de 12 épocas se restauró desde el log.
+- Rechazo reforzado con `ml/ood.py` y `ml/class_prototypes.json`: además de confianza/margen, se rechazan ruido/imágenes uniformes y fotos lejanas a los prototipos de las cinco clases. El modelo era sobreconfiado (100 % con ruido y con una foto ajena); ahora ambos casos se marcan como no reconocidos.
+- Un rechazo ya no expone porcentajes: `PredictionOutcome` devuelve `fruit_name="No reconocido"`, confianza 0 y probabilidades vacías; la tarjeta muestra solo **No reconocido** (sin distribución ni gráfica) y la CLI imprime únicamente `NO RECONOCIDO`. Se añadió `tests/unit/test_rechazo_sin_porcentajes.py`.
+- Verificación ampliada: 30 imágenes reales del Test por clase (150 en total) reconocidas correctamente, con confianza mínima 98.28 %.
+- Rechazo por dominio visual: `MAX_IMAGE_GRADIENT=13.0` (máximo real del Test 11.51, foto de perro 18.70) y `MIN_WHITE_BACKGROUND=0.10` (mínimo real del Test 0.15, fotos arbitrarias 0.00). Se midieron siete imágenes ajenas (perro del usuario, Lena, babuino, flores, casa, gato y ruido): las siete se rechazan sin porcentajes.
+- Aclaración verificada por pruebas: la predicción usa los bytes de la imagen subida, nunca el historial ni el nombre del archivo; un rechazo no se persiste. Renombrar un perro como `banana_1.jpg` sigue dando `NO RECONOCIDO`.
 
-### Seguridad
-- No se almacena ninguna credencial real; `.env.example` usa únicamente el marcador
-  `REEMPLAZAR_POR_URI_DE_ATLAS`.
+### Nota
+- No se realizaron commits como parte de esta entrega.

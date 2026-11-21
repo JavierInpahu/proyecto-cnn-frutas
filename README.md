@@ -1,269 +1,165 @@
-# Clasificador de Frutas con Redes Neuronales Convolucionales (CNN)
+# FRUIT VISION
 
-Este proyecto evoluciona un clasificador de frutas con CNN hacia un monolito modular en Python/Streamlit/MongoDB Atlas, conservando el modelo entrenado y el comportamiento original.
+Clasificador inteligente de frutas con una red neuronal convolucional (CNN) y una interfaz web moderna hecha con Streamlit.
 
-## Descripción
+El sistema reconoce exactamente cinco clases, en este orden:
 
-El sistema clasifica imágenes de cinco frutas (manzana, banano, naranja, uva y piña) mediante una red neuronal convolucional. La predicción se muestra en una aplicación web construida con Streamlit. La evolución actual introduce:
+| Índice | Clase | Fruta |
+|---:|---|---|
+| 0 | `Apple Golden 1` | Manzana |
+| 1 | `Banana 1` | Banano |
+| 2 | `Orange 1` | Naranja |
+| 3 | `Grape Blue 1` | Uva |
+| 4 | `Pineapple 1` | Piña |
 
-- Arquitectura en capas con dependencias unidireccionales.
-- Persistencia en MongoDB Atlas con modelo de datos de cinco campos.
-- CRUD de frutas e historial de predicciones.
-- Interfaz Streamlit con cinco secciones (Inicio, Reconocimiento, Historial, Administración de frutas y Estadísticas).
-- Manifiesto único de clases (`ml/class_manifest.json`) como fuente de verdad.
-- Pruebas automatizadas (unitarias sin red, de integración con Atlas).
-- Sin reentrenamiento ni movimiento del modelo original.
+> **Corrección principal.** El modelo incluye `Rescaling(1./255)` **dentro** del grafo (`ml/model.py`, capa `normalizacion_unica`). El preprocesamiento de imagen entrega píxeles RGB en rango **0–255** y **nunca** divide entre 255. Los scripts antiguos de la raíz sí lo hacían y provocaban una doble normalización: todas las imágenes colapsaban a una sola clase. Ese error quedó corregido en `ml/image_processor.py`, `ml/predictor.py`, `scripts/predict.py` y los wrappers de la raíz.
 
-## Frutas clasificadas
+## Qué contiene este paquete
 
-- **Apple Golden 1** (manzana) — `Malus domestica`
-- **Banana 1** (banano) — `Musa acuminata`
-- **Orange 1** (naranja) — `Citrus sinensis`
-- **Grape Blue 1** (uva) — `Vitis vinifera`
-- **Pineapple 1** (piña) — `Ananas comosus`
+- `app.py`: punto de entrada de la interfaz Streamlit (encabezado FRUIT VISION, menú lateral, carga drag & drop, resultados en tarjetas, historial, administración y estadísticas).
+- `frontend/`: tema CSS, navegación, componentes de carga/resultado y las tres vistas originales (Inicio, Historial y Estadísticas). El reconocimiento ocurre dentro de Inicio.
+- `backend/`: configuración, modelos de dominio, repositorios y servicios. Si MongoDB Atlas no está disponible, la app usa automáticamente un historial local en `data/history.json` y un catálogo local en `data/fruits.json`.
+- `ml/`: arquitectura de la CNN, entrenamiento y evaluación, carga del modelo, índices de clase, prototipos por clase, preprocesamiento y predicción con rechazo por confianza, estructura y distancia.
+- `scripts/`: descarga del dataset solo de las cinco clases, entrenamiento y predicción por línea de comandos.
+- `tests/`: pruebas unitarias reales, incluyendo muestras de una imagen por clase incluidas en `tests/fixtures/dataset_samples/`.
+- `reports/`: métricas y gráficas generadas por el entrenamiento (`evaluation.json`, `training_curves.png`, `confusion_matrix.png`, `classification_report.txt`).
+- `modelo_frutas.keras`: modelo reentrenado y funcional.
+- `ml/class_indices.json`: correspondencia índice → nombre de clase, rango de entrada y umbral de confianza usado por la app.
+- `ml/class_prototypes.json`: embeddings promedio de cada clase y umbral de distancia para rechazar imágenes ajenas.
 
-## Tecnologías utilizadas
+El dataset completo **no** se incluye en el ZIP para no inflarlo. Se descarga con un comando (ver más abajo).
 
-- **Python 3.11+**
-- **TensorFlow 2.21** y **Keras** — modelo entrenado `modelo_frutas.keras`
-- **NumPy** — manipulación de arreglos
-- **Pillow** — procesamiento de imágenes
-- **Streamlit** — interfaz web interactiva
-- **PyMongo** — controlador directo de MongoDB
-- **python-dotenv** — lectura de variables de entorno
-- **pytest** — suite de pruebas
-- **mongomock** — dobles de pruebas para MongoDB sin red
+## Requisitos
 
-## Estructura del proyecto
-
-El proyecto está organizado en carpetas por responsabilidad:
-
-```text
-proyecto-cnn-frutas/
-├── app.py                        # entrypoint delgado; delega en frontend/
-├── modelo_frutas.keras           # PROTEGIDO: modelo entrenado, sin cambios
-├── Proyecto_Final_CNN_Clasificacion_Frutas.ipynb  # PROTEGIDO: sin cambios
-├── requirements.txt              # dependencias con versiones fijadas
-├── .gitignore                    # archivos y carpetas ignorados por Git
-├── .gitattributes                # normalización de fin de línea (LF)
-├── pytest.ini                    # configuración de pytest (marcador integration)
-├── openspec/                     # root OpenSpec existente
-├── frontend/                     # vistas y componentes Streamlit (5 secciones)
-│   ├── __init__.py
-│   ├── navigation.py             # selección de las cinco secciones
-│   ├── components/
-│   │   ├── __init__.py
-│   │   ├── image_uploader.py     # carga y validación de archivo
-│   │   ├── prediction_card.py    # muestra fruta, confianza y probabilidades
-│   │   └── confirm_dialog.py     # confirmación de borrado
-│   └── views/
-│       ├── __init__.py
-│       ├── inicio.py             # página de bienvenida
-│       ├── reconocimiento.py     # carga de imagen y clasificación
-│       ├── historial.py          # listado, filtro, corrección y borrado
-│       ├── administracion_frutas.py  # CRUD y siembra del catálogo
-│       └── estadisticas.py       # total, conteo por fruta y confianza promedio
-├── backend/                      # configuración, modelos, repositorios y servicios
-│   ├── __init__.py
-│   ├── config/                   # Settings, validación de entorno
-│   │   └── settings.py
-│   ├── database/                 # MongoConnection, índices
-│   │   ├── __init__.py
-│   │   ├── mongo_connection.py
-│   │   └── indexes.py
-│   ├── models/                   # excepciones y dominio (Fruit, Prediction)
-│   │   ├── __init__.py
-│   │   ├── exceptions.py
-│   │   ├── fruit.py
-│   │   └── prediction.py
-│   └── services/                 # FruitService, PredictionService, ClassificationService
-│       ├── __init__.py
-│       ├── fruit_service.py
-│       ├── prediction_service.py
-│       └── classification_service.py
-├── ml/                           # manifiesto, procesado de imágenes, carga del modelo
-│   ├── __init__.py
-│   ├── class_manifest.json       # ÚNICA fuente: name, scientific_name, description
-│   ├── class_manifest.py         # lectura y validación del manifiesto
-│   ├── image_processor.py        # validación RGB, resize 100×100, float32, sin /255
-│   └── model_loader.py           # caché del modelo, compatibilidad con manifiesto
-├── scripts/                      # versiones corregidas de train.py/predict.py y check
-│   ├── __init__.py
-│   ├── check_mongo_connection.py # comprobación de conexión sin exponer URI
-│   ├── train.py                  # versión corregida (solo lectura y validación)
-│   └── predict.py                # versión corregida (predicción local por archivo)
-├── tests/                        # pruebas automatizadas
-│   ├── __init__.py
-│   ├── conftest.py               # fixtures: manifest, imágenes, mongomock
-│   ├── unit/                     # pruebas aisladas (sin red, mongomock)
-│   │   ├── test_class_manifest.py
-│   │   ├── test_settings.py
-│   │   ├── test_mongo_connection.py
-│   │   ├── test_indexes.py
-│   │   ├── test_fruit_repository.py
-│   │   ├── test_fruit_service.py
-│   │   ├── test_prediction_repository.py
-│   │   ├── test_prediction_service.py
-│   │   ├── test_image_processor.py
-│   │   ├── test_model_loader.py
-│   │   └── test_classification_service.py
-│   └── integration/              # pruebas con marcador `integration` (requiere MONGODB_URI)
-│       ├── test_fruit_crud_integration.py
-│       └── test_prediction_crud_integration.py
-│   └── fixtures/
-│       └── legacy_baseline.json  # línea base de regresión (clase y confianza de app.py)
-├── docs/                         # documentación operativa
-│   ├── requisitos.md
-│   ├── arquitectura.md
-│   ├── base_datos.md
-│   ├── conexion_mongodb.md
-│   ├── pruebas.md
-│   └── CHANGELOG.md
-├── .env.example                  # plantilla: solo REEMPLAZAR_POR_URI_DE_ATLAS
-├── README.md                     # este documento (actualizado incremental)
-└── CHANGELOG.md                  # registro de cambios del proyecto
-```
+- Python 3.11 (probado con 3.11 y TensorFlow 2.21 en Windows).
+- Dependencias fijadas en `requirements.txt`.
 
 ## Instalación
-
-Recomendado usar **Python 3.11** o una versión compatible con las dependencias instaladas.
-
-### 1. Clonar el repositorio
-
-```bash
-git clone https://github.com/JavierInpahu/proyecto-cnn-frutas.git
-cd proyecto-cnn-frutas
-```
-
-### 2. Instalar las dependencias
 
 ```bash
 pip install -r requirements.txt
 ```
 
-El `requirements.txt` incluye (versiones fijadas):
-
-```
-tensorflow==2.21.0
-numpy==2.4.2
-pandas==2.3.3
-matplotlib==3.11.2
-seaborn==0.13.2
-scikit-learn==1.9.1
-pillow==12.1.1
-streamlit==1.54.0
-pymongo==4.20.1
-python-dotenv==1.2.4
-pytest==9.1.1
-mongomock==4.3.0
-```
-
-### 3. Configurar MongoDB Atlas
-
-1. Copiar el archivo de plantilla:
-
-   ```bash
-   # Windows
-   copy .env.example .env
-   
-   # Linux / macOS
-   cp .env.example .env
-   ```
-
-2. Reemplazar únicamente el marcador `REEMPLAZAR_POR_URI_DE_ATLAS` con la URI real del cluster Atlas:
-
-   ```dotenv
-   MONGODB_URI=mongodb+srv://usuario:password@cluster0.mongodb.net
-   MONGODB_DATABASE=DB_Frutas_Inpahu
-   MONGODB_FRUITS_COLLECTION=fruits
-   MONGODB_PREDICTIONS_COLLECTION=predictions
-   MONGODB_TIMEOUT_MS=8000
-   MODEL_PATH=modelo_frutas.keras
-   ```
-
-   **Importante**: El archivo `.env` se ignora con `.gitignore`; **nunca** lo subas al repositorio.
-
-### 4. Verificar la conexión
+Opcional: copia `.env.example` a `.env` y rellena la URI de MongoDB Atlas si quieres usar el historial remoto:
 
 ```bash
-python scripts/check_mongo_connection.py
+# Windows
+copy .env.example .env
+# Linux / macOS
+cp .env.example .env
 ```
 
-Si la conexión es correcta, imprime un mensaje de éxito sin mostrar la URI. En caso de fallo, informa el subtipo de error (configuración, autenticación, permisos o red) sin incluir credenciales.
+Nunca compartas ni versiones el archivo `.env`. Sin él, la aplicación funciona igual con almacenamiento local.
+
+## Descargar el dataset
+
+La fuente es el repositorio público `fruits-360/fruits-360-100x100` (CC BY-SA 4.0, Mihai Oltean). Solo se bajan las cinco carpetas necesarias de `Training` y `Test` (3.903 imágenes):
+
+```bash
+python scripts/download_dataset.py
+```
+
+Las imágenes quedan en `data/fruits-360-subset/`. La carpeta `data/` está ignorada por Git y excluida del ZIP.
 
 ## Ejecutar la aplicación
-
-Desde la carpeta del proyecto:
 
 ```bash
 python -m streamlit run app.py
 ```
 
-La aplicación se abrirá en el navegador en `http://localhost:8511` (o el puerto que indique Streamlit).
-
-### Flujo de trabajo
-
-1. Al abrir la app, el menú lateral permite elegir una de las cinco secciones.
-2. **Inicio**: información general del sistema.
-3. **Reconocimiento**: subir una imagen (JPG, JPEG o PNG, máximo 5 MB) y obtener la predicción de la fruta, la confianza y las cinco probabilidades. Si la confianza es inferior al 60 %, se muestra una advertencia.
-4. **Historial**: consultar, filtrar (por fruta y rango de fechas), corregir el nombre de la fruta y eliminar predicciones (requiere confirmación).
-5. **Administración de frutas**: siembra del catálogo desde el manifiesto, crear frutas nuevas, editar datos, activar/desactivar y borrar (con confirmación).
-6. **Estadísticas**: total de predicciones, confianza promedio, conteo por fruta y gráfico de barras.
-
-## Ejecutar una predicción sin la interfaz
-
-También es posible clasificar una imagen desde la línea de comandos usando el script corregido:
+Por defecto Streamlit usa `http://localhost:8501`. Si necesitas otro puerto:
 
 ```bash
-python scripts/predict.py ruta/de/imagen.jpg
+python -m streamlit run app.py --server.port 8511
 ```
 
-El script muestra la fruta predicha, la confianza y las probabilidades de cada clase. Requiere que `modelo_frutas.keras` y `ml/class_manifest.json` estén en la raíz.
+El menú está en la barra lateral y la ruta activa se resalta en morado. Se conservan únicamente las tres rutas originales:
 
-## Entrenamiento
+1. **Inicio**: arrastra una foto JPG, JPEG o PNG (máx. 5 MB) a la zona de carga, pulsa **Analizar fruta** y revisa la tarjeta con la fruta, la confianza, las cinco probabilidades y la gráfica comparativa. Si la imagen se rechaza, la tarjeta dice únicamente **No reconocido**: no se muestra confianza, probabilidades ni gráfica, porque ninguna clase coincide.
+2. **Historial**: imágenes analizadas (cuando se usó historial local), fruta, confianza, fecha, filtros, corrección y borrado con confirmación.
+3. **Estadísticas**: total de predicciones, confianza media y conteo por fruta.
 
-**No se reentrena el modelo** en este cambio. El archivo `modelo_frutas.keras` permanece en la raíz sin modificaciones.
+> El arranque es rápido: TensorFlow y el modelo se cargan solo cuando haces clic en **Analizar fruta**. Abrir Historial o Estadísticas no carga la red neuronal ni consulta MongoDB Atlas.
 
-El archivo `scripts/train.py` sirve únicamente para validar la compatibilidad del modelo con el manifiesto; no realiza entrenamiento nuevo.
+Si la predicción queda por debajo del umbral, los dos primeros puntajes están demasiado cerca, la imagen parece ruido o su embedding queda lejos de los prototipos, la app muestra solo **No reconocido**. El resultado rechazado no devuelve nombre de fruta, confianza ni probabilidades: no hay una clase coincidente que justifique un porcentaje.
 
-Los archivos `train.py` y `predict.py` de la **raíz** contienen cercas de Markdown y no son ejecutables tal cual. Se conservan intactos por compatibilidad; las versiones corregidas están en `scripts/`.
+## Predicción por línea de comandos
+
+```bash
+python scripts/predict.py tests/fixtures/dataset_samples/pineapple_1.jpg
+```
+
+Salida real esperada (ejemplo): fruta predicha, confianza y probabilidades de las cinco clases. Si la imagen se rechaza, la única salida es `NO RECONOCIDO`, sin porcentajes. El wrapper `predict.py` de la raíz hace lo mismo.
+
+## Reentrenar el modelo
+
+```bash
+python scripts/download_dataset.py   # solo si aún no existe data/fruits-360-subset
+python scripts/train.py --epochs 12
+```
+
+El pipeline:
+
+- Lee las clases desde `ml/class_manifest.json` y **fuerza ese orden** en `image_dataset_from_directory` (no depende del orden alfabético).
+- Divide `Training` en entrenamiento (80 %) y validación (20 %) con semilla fija; usa `Test` (980 imágenes) **solo** para la evaluación final.
+- Aplica aumento de datos (volteo horizontal, rotación, zoom, traslación) y dropout para reducir sobreajuste.
+- Guarda automáticamente el mejor modelo por `val_accuracy` en `modelo_frutas.keras` y restaura los mejores pesos con `EarlyStopping`.
+- Calibra el umbral de rechazo con el percentil 5 de la confianza de los aciertos en validación, limitado al rango `[0.60, 0.90]`.
+- Escribe `ml/class_indices.json` con clases, índices, rango de entrada, normalización y umbral.
+- Genera métricas reales y gráficas en `reports/`.
+
+Opciones útiles: `--data-dir`, `--modelo`, `--manifiesto`, `--indices`, `--reports-dir`, `--epochs`, `--batch-size`, `--seed`.
+
+## Resultados reales de la evaluación
+
+Los siguientes valores fueron generados por `python scripts/train.py --epochs 12` sobre el conjunto `Test` independiente (980 imágenes), usando el mejor modelo guardado por validación:
+
+| Métrica (Test, 980 imágenes) | Valor |
+| --- | --- |
+| Accuracy | **100.00 %** |
+| Precision ponderada | **100.00 %** |
+| Recall ponderado | **100.00 %** |
+| F1 ponderado | **100.00 %** |
+| Precision macro | **100.00 %** |
+| Recall macro | **100.00 %** |
+| F1 macro | **100.00 %** |
+| Umbral de rechazo calibrado | 0.900 |
+
+La matriz de confusión es diagonal: 160 manzanas, 166 bananos, 160 naranjas, 328 uvas y 166 piñas correctamente clasificadas, sin errores en el conjunto de prueba. Las curvas y la matriz están en `reports/training_curves.png` y `reports/confusion_matrix.png`.
+
+### Limitaciones del rechazo
+
+La confianza softmax **no es una probabilidad calibrada**: este modelo llega al 100 % incluso con ruido aleatorio o con una foto que no es fruta. Por eso el rechazo combina cuatro señales: confianza/margen, estructura de la imagen (ruido, detalle excesivo o imagen uniforme), distancia del embedding a los cinco prototipos de clase (`ml/class_prototypes.json`, umbral 5.0 calibrado con el Test real, cuya distancia máxima fue 3.24) y pertenencia al dominio visual del entrenamiento. En el Test real, el **100 %** de las 980 imágenes tiene al menos un 15 % de píxeles con `min(R,G,B) >= 240` (fondo claro); las fotos arbitrarias medidas tienen 0 %. El umbral configurado es 0.10 (`MIN_WHITE_BACKGROUND`), por debajo del peor caso real.
+
+La clasificación **no consulta el historial ni compara nombres de archivo**: `ClassificationService.classify` pasa los bytes subidos directamente a la CNN y solo escribe en el historial cuando la imagen se acepta. Renombrar una foto de perro como `banana_1.jpg` sigue dando `NO RECONOCIDO`; renombrar una manzana como `foto_cualquiera.png` sigue dando `Apple Golden 1`.
+
+Estas defensas detectan casos evidentes, pero **no garantizan** rechazar cualquier imagen fuera de distribución: una fruta de otra variedad, varias frutas juntas, iluminación extrema o fondos muy distintos a Fruits-360 (fondo blanco, fruta centrada) pueden reducir la precisión o incluso pasar el filtro. Es una barrera auditable, no una garantía.
 
 ## Pruebas automatizadas
 
 ```bash
-# Pruebas unitarias (sin red, sin Atlas)
 pytest -m "not integration"
+```
 
-# Pruebas de integración (requiere MONGODB_URI configurado en .env)
+La suite verifica, entre otros puntos: arranque de la app, carga del modelo, una capa de normalización única, entrada en 0–255, coincidencia índice/clase con el manifiesto, reconocimiento de las cinco clases sin rechazo, rechazo de ruido, de imágenes ajenas por distancia y de escenas sin fondo claro, que el nombre del archivo no altera la predicción, que un rechazo no se guarda ni consulta el historial, ausencia de porcentajes en rechazos (resultado, interfaz y CLI), generación de métricas y CRUD del historial local.
+
+Las pruebas de integración con Atlas se ejecutan aparte:
+
+```bash
 pytest -m integration
 ```
 
-### ¿Qué cubren?
+## Arquitectura y decisiones
 
-- **Suite unitaria** (45 tests): configuración, conexión con dobles y `mongomock`, CRUD de frutas, historial de predicciones, procesamiento de imágenes, carga del modelo, clasificación y regresión contra `app.py`. Nunca se conecta a Atlas ni usan credenciales reales.
-- **Suite de integración** (marcador `integration`): opera exclusivamente sobre la base `DB_Frutas_Inpahu_test`. Requiere la `MONGODB_URI` configurada fuera del repositorio. Se verifica que no se escriba en `DB_Frutas_Inpahu` y que las predicciones almacenen solo nombre de archivo, nunca binarios.
+- **Un solo punto de normalización**: la capa `normalizacion_unica` dentro del modelo. No hay divisiones entre 255 en la app ni en los scripts.
+- **Clases persistidas**: `ml/class_indices.json` se valida contra `ml/class_manifest.json` al cargar la app; si no coinciden o aún no se generó, la app muestra el estado “en preparación” en lugar de predecir con etiquetas erróneas.
+- **Historial sin romper lo existente**: se conservan los repositorios de MongoDB Atlas con el documento de cinco campos. El historial local añade una miniatura en base64 solo en JSON; Atlas sigue recibiendo únicamente `fruit_name`, `confidence`, `image_name` y `created_at`.
+- **Interfaz**: Streamlit + CSS propio con paleta blanca/lavanda/morado, tarjetas con bordes suaves, media queries para pantallas pequeñas y estados de carga/error. El tema nativo se fija en `.streamlit/config.toml` para que botones y gráficas también usen morado.
 
-### Escaneo de secretos
+## Atribución del dataset
 
-El cambio incluye una verificación (task 9.6) que busca credenciales reales en todos los archivos. El único valor que aparece es el marcador `REEMPLAZAR_POR_URI_DE_ATLAS` en `.env.example`.
+Fruits-360 © Mihai Oltean, licenciado bajo [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Fuente: <https://github.com/fruits-360/fruits-360-100x100>.
 
-## Reversión
+## Nota sobre Git
 
-Antes de refactorizar `app.py` se creó el tag `git tag pre-refactor`. Para recuperar la versión heredada del punto de entrada:
-
-```bash
-git checkout pre-refactor -- app.py
-```
-
-Esto restaura `app.py` desde el tag sin hacer commits ni reescribir historial. Los demás archivos modificados durante la evolución se pueden revertir con los comandos correspondientes del control de versiones.
-
-## Referencias
-
-- **Clúster Atlas**: confirmado por el solicitante; URI entregada fuera del repositorio.
-- **Sin reentrenamiento**: el modelo `modelo_frutas.keras` se conserva tal cual; entrada 100×100×3, `Rescaling` incorporado, **no dividir entre 255**.
-- **Manifiesto único**: `ml/class_manifest.json` define las cinco clases con nombre, nombre científico y descripción; es la única fuente para modelo, entrenamiento, predicción y siembra de Atlas.
-- **Índice único case-insensitive**: `fruits.name` con collation `strength: 2` (sin campo auxiliar de normalización).
-
-## Autor
-
-Proyecto académico de Ingeniería de Software. Evolución OpenSpec: `evolve-fruit-classifier-streamlit-mongodb`.
+No se han realizado commits como parte de esta entrega. Los archivos están modificados directamente en el repositorio de trabajo.
